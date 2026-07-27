@@ -1,11 +1,11 @@
-/** BOTSpend wordmark — pure type (no ghost; Phantom's mascot is their IP). Weight 350, tight tracking. */
+/** SpendArc wordmark - pure type. Weight 600, tight tracking. */
 export function Wordmark({className = "", tone = "dark"}: {className?: string; tone?: "dark" | "light"}) {
   return (
     <span
-      className={`font-heading select-none ${tone === "light" ? "text-paper-white" : "text-aubergine"} ${className}`}
-      style={{fontWeight: 350, letterSpacing: "-0.03em"}}
+      className={`font-sans select-none ${tone === "light" ? "text-white" : "text-text-primary"} ${className}`}
+      style={{fontWeight: 600, letterSpacing: "-0.03em"}}
     >
-      BOT<span className="text-periwinkle">Spend</span>
+      Spend<span className="text-accent">Arc</span>
     </span>
   );
 }
