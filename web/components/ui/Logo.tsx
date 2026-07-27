@@ -1,17 +1,11 @@
-/** BOTSpend logo lockup — AVIF (16 KB) with a PNG fallback via <picture>. */
+/** SpendArc logo - text-based lockup with accent color. */
 export function Logo({height = 28, className = ""}: {height?: number; className?: string}) {
   return (
-    <picture>
-      <source srcSet="/botspend-logo.avif" type="image/avif" />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/botspend-logo.png"
-        alt="BOTSpend"
-        height={height}
-        style={{height, width: "auto"}}
-        className={`select-none ${className}`}
-        draggable={false}
-      />
-    </picture>
+    <span
+      className={`font-sans select-none text-text-primary ${className}`}
+      style={{fontSize: height * 0.6, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1}}
+    >
+      Spend<span className="text-accent">Arc</span>
+    </span>
   );
 }
