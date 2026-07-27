@@ -19,18 +19,18 @@ function FenceCard({
   return (
     <Card tone="paper" pad="lg" className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-ghost-lavender text-aubergine">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/10 text-accent">
           {icon}
         </span>
-        <span className="text-caption uppercase tracking-[0.08em] text-fog">{index}</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">{index}</span>
       </div>
       <div>
-        <span className="text-caption uppercase tracking-[0.08em] text-periwinkle">{kicker}</span>
-        <h3 className="mt-1 font-heading text-heading-sm text-aubergine" style={{fontWeight: 350}}>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-accent">{kicker}</span>
+        <h3 className="mt-1 text-heading-sm text-text-primary" style={{fontWeight: 600}}>
           {title}
         </h3>
       </div>
-      <p className="text-body text-obsidian/75">{children}</p>
+      <p className="text-body text-text-secondary">{children}</p>
     </Card>
   );
 }
@@ -40,24 +40,24 @@ export function TwoFences() {
     <Section tone="dark" id="fences">
       <div className="max-w-[52ch]">
         <Eyebrow onDark>The architecture</Eyebrow>
-        <h2 className="mt-4 font-heading text-heading leading-tight sm:text-heading-lg sm:leading-[1.1]" style={{fontWeight: 350}}>
+        <h2 className="mt-4 text-heading leading-tight sm:text-heading-lg sm:leading-[1.1]" style={{fontWeight: 600}}>
           Two independent fences.
         </h2>
-        <p className="mt-5 text-body text-paper-white/70">
+        <p className="mt-5 text-body text-white/70">
           Neither substitutes the other. One stops off-policy actions from ever broadcasting; the other polices
           every spend that does.
         </p>
       </div>
 
       <div className="mt-12 grid gap-6 lg:grid-cols-2">
-        <FenceCard index="Fence 1" kicker="Gas layer · BOT Chain native" title="It can&rsquo;t even broadcast" icon={<Bolt />}>
-          The agent&rsquo;s account holds zero BOT. Every action is a sponsored UserOp, and the paymaster&rsquo;s
-          off-chain signer only signs calls into the vault. An off-policy action is never sponsored — with no gas,
+        <FenceCard index="Fence 1" kicker="Gas layer" title="It can&apos;t even broadcast" icon={<Bolt />}>
+          The agent&apos;s account holds zero gas. Every action is a sponsored UserOp, and the paymaster&apos;s
+          off-chain signer only signs calls into the vault. An off-policy action is never sponsored - with no gas,
           it never enters a bundle.
         </FenceCard>
-        <FenceCard index="Fence 2" kicker="Contract layer · the vault" title="It only moves inside policy" icon={<Shield />}>
-          For any call that does get sponsored, the vault checks the full policy — active, not expired, token
-          allowed, target allowed, per-tx cap, daily cap, dedup — before moving a cent. Blocked actions emit an
+        <FenceCard index="Fence 2" kicker="Contract layer" title="It only moves inside policy" icon={<Shield />}>
+          For any call that does get sponsored, the vault checks the full policy - active, not expired, token
+          allowed, target allowed, per-tx cap, daily cap, dedup - before moving a cent. Blocked actions emit an
           on-chain record and move nothing.
         </FenceCard>
       </div>
