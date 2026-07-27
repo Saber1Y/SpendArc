@@ -1,7 +1,4 @@
-import {Chip} from "@/components/ui/Chip";
-import {Dot} from "@/components/ui/Icons";
-
-/** Gasless/sponsor status: sponsor funded + agent holds nothing → gasless active. */
+/** Gas/sponsor status indicator for the SpendArc dashboard. */
 export function GaslessStatusBadge({
   paymasterDeposit,
   agentNative,
@@ -14,16 +11,20 @@ export function GaslessStatusBadge({
   loading: boolean;
 }) {
   if (loading || paymasterDeposit === undefined) {
-    return <Chip tone="outline">checking sponsor…</Chip>;
+    return <span className="text-[11px] text-text-muted">Checking sponsor...</span>;
   }
   const funded = paymasterDeposit > 0n;
   const holdsNothing = (agentNative ?? 0n) === 0n && (agentDeposit ?? 0n) === 0n;
   const active = funded && holdsNothing;
 
   return (
-    <Chip tone={active ? "mint" : "blush"}>
-      <Dot width={9} height={9} />
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+      active ? "text-state-approved" : funded ? "text-state-pending" : "text-state-blocked"
+    }`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${
+        active ? "bg-state-approved" : funded ? "bg-state-pending" : "bg-state-blocked"
+      }`} />
       {active ? "Gasless active" : funded ? "Agent not empty" : "Sponsor unfunded"}
-    </Chip>
+    </span>
   );
 }
