@@ -15,20 +15,24 @@ export function OwnerConnectButton() {
     return (
       <button
         onClick={() => disconnect()}
-        className="inline-flex items-center gap-2 rounded-pill border border-ash bg-paper-white px-3 py-2 text-body-sm text-aubergine transition hover:bg-bone"
+        className="inline-flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[13px] text-white/70 transition hover:bg-white/10 hover:text-white/90"
         title="Disconnect"
       >
-        <Dot width={9} height={9} className="text-mint-signal" />
-        {truncateAddress(address)}
+        <Dot width={8} height={8} className="text-state-approved shrink-0" />
+        <span className="truncate">{truncateAddress(address)}</span>
       </button>
     );
   }
 
   const injected = connectors[0];
   return (
-    <Button variant="secondary" size="sm" onClick={() => injected && connect({connector: injected})} disabled={isPending || !injected}>
-      {isPending ? "Connecting…" : "Connect wallet"}
-    </Button>
+    <button
+      onClick={() => injected && connect({connector: injected})}
+      disabled={isPending || !injected}
+      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white transition hover:bg-accent-hover disabled:opacity-50"
+    >
+      {isPending ? "Connecting..." : "Connect Wallet"}
+    </button>
   );
 }
 
