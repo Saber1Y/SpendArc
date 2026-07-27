@@ -4,25 +4,25 @@ import {Dot, ArrowUpRight} from "@/components/ui/Icons";
 
 export function Hero() {
   return (
-    <section className="bg-paper-white px-6">
+    <section className="bg-white px-6">
       <div className="mx-auto max-w-[1200px] pb-20 pt-16 text-center sm:pb-28 sm:pt-24">
         <div className="mb-8 flex justify-center">
-          <Chip tone="lavender">
-            <Dot width={10} height={10} className="text-mint-signal" />
-            Live on BOT Chain testnet 968
+          <Chip tone="accent">
+            <Dot width={10} height={10} className="text-state-approved" />
+            Live on Arc Testnet
           </Chip>
         </div>
 
         <h1
-          className="mx-auto max-w-[16ch] font-heading text-[44px] leading-[1.05] text-aubergine sm:text-[64px]"
-          style={{fontWeight: 350, letterSpacing: "-0.03em"}}
+          className="mx-auto max-w-[16ch] text-[44px] leading-[1.05] text-text-primary sm:text-[64px]"
+          style={{fontWeight: 600, letterSpacing: "-0.03em"}}
         >
-          Give your AI agent a wallet it can&rsquo;t drain.
+          Programmable spending controls for autonomous AI agents.
         </h1>
 
-        <p className="mx-auto mt-7 max-w-[60ch] text-subheading text-fog">
-          BOTSpend doesn&rsquo;t make agents smarter. It makes them safe to fund — the agent holds nothing, a
-          sponsor policy fences it to the vault at the gas layer, and the vault enforces caps, allowlists and
+        <p className="mx-auto mt-7 max-w-[60ch] text-subheading text-text-muted">
+          SpendArc doesn&apos;t make agents smarter. It makes them safe to fund - the agent holds nothing, a
+          spending policy evaluates every request, and the vault enforces caps, allowlists and
           receipts on-chain.
         </p>
 
