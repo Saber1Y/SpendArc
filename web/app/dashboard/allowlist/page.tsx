@@ -15,7 +15,7 @@ function RecipientSection({state, isOwner, agent, refetch}: {
   agent: Address;
   refetch: () => void;
 }) {
-  const [target, setTarget] = useState(DEMO.vendor);
+  const [target, setTarget] = useState<string>(DEMO.vendor);
   const write = useOwnerWrite(refetch);
 
   const allowTarget = (allowed: boolean) => {
@@ -111,7 +111,7 @@ function TokenSection({state, isOwner, agent, refetch}: {
   agent: Address;
   refetch: () => void;
 }) {
-  const [token, setToken] = useState(CONTRACTS.mockUSD);
+  const [token, setToken] = useState<string>(CONTRACTS.mockUSD);
   const write = useOwnerWrite(refetch);
 
   const allowToken = (allowed: boolean) => {

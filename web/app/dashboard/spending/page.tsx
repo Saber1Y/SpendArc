@@ -24,7 +24,7 @@ type Filter = "all" | "approved" | "blocked" | "failed" | "pending";
 function RunAgentSection({refetch}: {refetch: () => void}) {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [run, setRun] = useState<RunState>({phase: "idle"});
-  const [recipient, setRecipient] = useState(DEMO.vendor);
+  const [recipient, setRecipient] = useState<string>(DEMO.vendor);
   const [amount, setAmount] = useState("4");
   const [purpose, setPurpose] = useState("");
 

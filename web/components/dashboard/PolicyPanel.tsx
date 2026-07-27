@@ -90,11 +90,11 @@ export function PolicyPanel({
           <div>
             <span className="text-caption uppercase tracking-[0.06em] text-fog">Allowlisted</span>
             <div className="mt-2 flex flex-wrap gap-2">
-              <Chip tone={state.targetAllowed ? "lavender" : "outline"}>
+              <Chip tone={state.targetAllowed ? "accent" : "outline"}>
                 {state.targetAllowed ? <Check width={12} height={12} /> : null}
                 target {truncateAddress(DEMO.vendor)}
               </Chip>
-              <Chip tone={state.tokenAllowed ? "lavender" : "outline"}>
+              <Chip tone={state.tokenAllowed ? "accent" : "outline"}>
                 {state.tokenAllowed ? <Check width={12} height={12} /> : null}
                 mUSD {truncateAddress(CONTRACTS.mockUSD)}
               </Chip>

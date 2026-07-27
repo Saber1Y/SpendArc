@@ -24,7 +24,7 @@ export function AgentHeader({
           Spend control
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <CopyChip value={agent} label={truncateAddress(agent)} tone="lavender" />
+          <CopyChip value={agent} label={truncateAddress(agent)} tone="accent" />
           <TxChip href={explorerAddress(agent)} label="on explorer" />
         </div>
       </div>
