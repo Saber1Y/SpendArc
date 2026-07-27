@@ -1,26 +1,24 @@
-import {Check, Hand} from "./Icons";
-
 /**
- * The fence-outcome badge. Approved = Mint solid. Blocked = Blush TINT + "Held" label + hand icon.
- * NO red — a block is the fence working as designed, not an error.
+ * The fence-outcome badge. Approved = green solid. Blocked = red solid.
+ * A block is the fence working as designed.
  */
 export function StateBadge({kind, className = ""}: {kind: "approved" | "blocked"; className?: string}) {
   if (kind === "approved") {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-pill bg-mint-signal px-3 py-1 text-[13px] leading-none text-paper-white ${className}`}
+        className={`inline-flex items-center gap-1.5 rounded-full bg-state-approved-light px-2.5 py-1 text-[11px] font-medium text-state-approved ${className}`}
       >
-        <Check width={13} height={13} />
+        <span className="h-1 w-1 rounded-full bg-state-approved" />
         Approved
       </span>
     );
   }
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-pill border border-blush-mist bg-blush-mist/50 px-3 py-1 text-[13px] leading-none text-aubergine ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full bg-state-blocked-light px-2.5 py-1 text-[11px] font-medium text-state-blocked ${className}`}
     >
-      <Hand width={13} height={13} />
-      Held
+      <span className="h-1 w-1 rounded-full bg-state-blocked" />
+      Blocked
     </span>
   );
 }
