@@ -5,17 +5,16 @@ import {Providers} from "@/components/Providers";
 
 const inter = Inter({subsets: ["latin"], variable: "--font-inter", display: "swap"});
 
-const title = "BOTSpend — a wallet your AI agent can't drain";
+const title = "SpendArc - Agent Spending Control Plane";
 const description =
-  "Policy-checked, gasless spend vaults for autonomous agents on BOT Chain. The agent holds nothing; a sponsor policy fences it to the vault at the gas layer; the vault enforces caps, allowlists and receipts on-chain.";
+  "Programmable spending controls for autonomous AI agents. Control what agents can spend, where they can spend it, and how much they can spend.";
 
 export const metadata: Metadata = {
-  // absolute URLs for OG/twitter images; set NEXT_PUBLIC_SITE_URL on deploy for live previews
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title,
   description,
-  applicationName: "BOTSpend",
-  openGraph: {title, description, siteName: "BOTSpend", type: "website"},
+  applicationName: "SpendArc",
+  openGraph: {title, description, siteName: "SpendArc", type: "website"},
   twitter: {card: "summary_large_image", title, description},
 };
 
