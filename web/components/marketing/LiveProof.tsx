@@ -26,36 +26,36 @@ function ProofColumn({data}: {data: ProofResult | undefined}) {
       </div>
 
       <div>
-        <span className="text-caption uppercase tracking-[0.08em] text-fog">executeSpend</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">executeSpend</span>
         {data ? (
-          <div className="mt-1 font-heading text-heading-lg leading-none text-aubergine" style={{fontWeight: 350}}>
-            {formatMusd(data.amount)} <span className="text-heading-sm text-fog">mUSD</span>
+          <div className="mt-1 text-heading-lg leading-none text-text-primary" style={{fontWeight: 600}}>
+            {formatMusd(data.amount)} <span className="text-heading-sm text-text-muted">mUSD</span>
           </div>
         ) : (
           <Skeleton className="mt-2 h-12 w-40" />
         )}
       </div>
 
-      <div className="space-y-3 border-t border-ash pt-5 text-body-sm">
+      <div className="space-y-3 border-t border-border pt-5 text-[13px]">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-fog">Event</span>
+          <span className="text-text-muted">Event</span>
           {data ? (
-            <span className="text-right text-aubergine">
+            <span className="text-right text-text-primary">
               {approved ? "AgentActionApproved" : "AgentActionBlocked"}
-              {!approved && data.reason ? <span className="text-fog"> · &ldquo;{data.reason}&rdquo;</span> : null}
+              {!approved && data.reason ? <span className="text-text-muted"> - &ldquo;{data.reason}&rdquo;</span> : null}
             </span>
           ) : (
             <Skeleton className="h-4 w-40" />
           )}
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-fog">Result</span>
-          <span className="text-aubergine">
-            {approved ? `vendor received ${data ? formatMusd(data.amount) : "—"} mUSD` : "nothing moved"}
+          <span className="text-text-muted">Result</span>
+          <span className="text-text-primary">
+            {approved ? `vendor received ${data ? formatMusd(data.amount) : "-"} mUSD` : "nothing moved"}
           </span>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-fog">Transaction</span>
+          <span className="text-text-muted">Transaction</span>
           {data ? (
             <TxChip href={explorerTx(data.txHash)} label={truncateHash(data.txHash)} />
           ) : (
@@ -81,16 +81,16 @@ export function LiveProof() {
   }, []);
 
   return (
-    <section id="proof" className="bg-bone px-6">
+    <section id="proof" className="bg-surface-muted px-6">
       <div className="mx-auto max-w-[1200px] py-16 sm:py-20 lg:py-24">
         <div className="max-w-[56ch]">
-          <Eyebrow>Live proof · on-chain</Eyebrow>
-          <h2 className="mt-4 font-heading text-heading leading-tight text-aubergine sm:text-heading-lg sm:leading-[1.1]" style={{fontWeight: 350}}>
+          <Eyebrow>Live proof - on-chain</Eyebrow>
+          <h2 className="mt-4 text-heading leading-tight text-text-primary sm:text-heading-lg sm:leading-[1.1]" style={{fontWeight: 600}}>
             Same agent. One variable.
           </h2>
-          <p className="mt-5 text-body text-obsidian/75">
-            Two real sponsored actions from agent <span className="text-aubergine">{truncateAddress(DEMO.agent)}</span>,
-            identical but for the amount — 4 mUSD vs 6 mUSD against a 5 mUSD per-tx cap. The difference lives entirely
+          <p className="mt-5 text-body text-text-secondary">
+            Two real sponsored actions from agent <span className="text-text-primary font-medium">{truncateAddress(DEMO.agent)}</span>,
+            identical but for the amount - 4 mUSD vs 6 mUSD against a 5 mUSD per-tx cap. The difference lives entirely
             in the events and the untouched balances.
           </p>
         </div>
@@ -98,7 +98,7 @@ export function LiveProof() {
         <div className="mt-12 grid items-stretch gap-6 lg:grid-cols-[1fr_auto_1fr]">
           <ProofColumn data={approved} />
           <div className="flex items-center justify-center">
-            <span className="rounded-pill border border-ash bg-paper-white px-4 py-2 text-caption uppercase tracking-[0.08em] text-fog">
+            <span className="rounded-full border border-border bg-white px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-text-muted">
               vs
             </span>
           </div>
