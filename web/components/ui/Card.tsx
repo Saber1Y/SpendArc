@@ -1,22 +1,22 @@
 import type {ReactNode} from "react";
 
-type Tone = "paper" | "bone" | "lavender" | "dark";
+type Tone = "paper" | "bone" | "elevated" | "dark";
 type Pad = "sm" | "md" | "lg";
 
 const toneClass: Record<Tone, string> = {
-  paper: "bg-paper-white border-ash text-obsidian",
-  bone: "bg-bone border-ash text-obsidian",
-  lavender: "bg-ghost-lavender border-ghost-lavender text-aubergine",
-  dark: "bg-aubergine border-white/12 text-paper-white",
+  paper: "bg-white border-border text-text-primary",
+  bone: "bg-surface-muted border-border text-text-primary",
+  elevated: "bg-white border-border text-text-primary shadow-elevated",
+  dark: "bg-surface-dark border-white/10 text-white",
 };
 
 const padClass: Record<Pad, string> = {
-  sm: "p-5",
-  md: "p-6 sm:p-8",
-  lg: "p-6 sm:p-10 lg:p-12", // up to 48px (card padding)
+  sm: "p-4",
+  md: "p-5",
+  lg: "p-8",
 };
 
-/** The Card Surface — 24px radius, flat (border, no shadow), generous padding. */
+/** The Card Surface - clean, elevated, consistent. */
 export function Card({
   tone = "paper",
   pad = "md",
@@ -29,6 +29,8 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <div className={`rounded-card border ${toneClass[tone]} ${padClass[pad]} ${className}`}>{children}</div>
+    <div className={`rounded-lg border ${toneClass[tone]} ${padClass[pad]} ${className}`}>
+      {children}
+    </div>
   );
 }
