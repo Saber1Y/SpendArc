@@ -1,6 +1,6 @@
 import type {ReactNode} from "react";
 
-/** A labelled stat — caption label + light-weight value + optional sub/units. */
+/** A labelled stat - caption label + light-weight value + optional sub/units. */
 export function StatTile({
   label,
   value,
@@ -13,12 +13,12 @@ export function StatTile({
   valueClassName?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-caption uppercase tracking-[0.06em] text-fog">{label}</span>
-      <span className={`font-heading text-heading-sm text-obsidian ${valueClassName}`} style={{fontWeight: 350}}>
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">{label}</span>
+      <span className={`text-[18px] font-semibold text-text-primary ${valueClassName}`}>
         {value}
       </span>
-      {sub ? <span className="text-body-sm text-fog">{sub}</span> : null}
+      {sub ? <span className="text-[12px] text-text-muted">{sub}</span> : null}
     </div>
   );
 }
