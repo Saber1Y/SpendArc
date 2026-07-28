@@ -2,7 +2,7 @@ import {type Address, type Hex, keccak256, encodeAbiParameters, parseAbiParamete
 import {packAccountGasLimits, packGasFees, type UserOpFields} from "./userOp.js";
 
 /**
- * TypeScript reimplementation of `BOTSpendPaymaster.getHash`, which is itself reproduced VERBATIM
+ * TypeScript reimplementation of `SpendArcPaymaster.getHash`, which is itself reproduced VERBATIM
  * from eth-infinitism `VerifyingPaymaster.sol` @ v0.7.0 (commit 7af70c8), L42-66.
  *
  * MUST be byte-identical to the on-chain getHash — any divergence means the recovered signer never

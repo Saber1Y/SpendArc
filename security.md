@@ -2,7 +2,7 @@
 
 [← README](./README.md) · [Architecture](./architecture.md) · [Adversarial Testing](./adversarialtesting.md)
 
-BOTSpend's safety rests on two independent fences and a set of invariants that keep them independent.
+SpendArc's safety rests on two independent fences and a set of invariants that keep them independent.
 This document states the guarantees, the deliberate tradeoffs, and the known v1 limitation — honestly.
 
 ---
@@ -12,7 +12,7 @@ This document states the guarantees, the deliberate tradeoffs, and the known v1 
 1. **An off-policy action can't be broadcast.** The agent account holds zero BOT, so every action needs
    sponsorship. The paymaster's off-chain signer only signs UserOps whose calldata is `execute(dest =
    vault)` from a registered account. No signature → no gas → the op never enters a bundle.
-2. **Value only moves inside policy.** For any sponsored call, `BOTSpendVault.executeSpend` checks
+2. **Value only moves inside policy.** For any sponsored call, `SpendArcVault.executeSpend` checks
    active/expiry, token allowlist, target allowlist, per-tx cap, rolling-24h daily cap, and actionId
    dedup **before** the transfer (checks-effects-interactions).
 3. **Every decision is on-chain.** Blocked actions emit `AgentActionBlocked(agent, target, token, amount,

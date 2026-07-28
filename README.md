@@ -1,14 +1,12 @@
 <div align="center">
 
-# BOTSpend
+# SpendArc
 
-**Give your AI agent a wallet it can't drain.**
+**Agent Spending Control Plane**
 
 Policy-checked, **gasless** spend vaults for autonomous agents on **BOT Chain**. The agent holds
 nothing — a sponsor policy fences it to the vault at the gas layer, and the vault enforces caps,
 allowlists, dedup and receipts on-chain.
-
-**▶ Live demo: https://botspend-production.up.railway.app**
 
 [Architecture](./architecture.md) · [Security](./security.md) · [Adversarial Testing](./adversarialtesting.md)
 
@@ -23,7 +21,7 @@ allowlists, dedup and receipts on-chain.
 Autonomous agents need to move money to act — pay a vendor, settle a task, swap on a DEX. Hand one an
 unrestricted key and a single prompt injection, hallucinated action, or runaway loop can drain it.
 
-BOTSpend gives the agent a wallet that **holds nothing** and can only ever move value **inside policy**,
+SpendArc gives the agent a wallet that **holds nothing** and can only ever move value **inside policy**,
 enforced by **two independent fences**:
 
 - **Fence 1 — gas layer (ERC-4337).** The agent is a zero-balance smart account. Every action is a

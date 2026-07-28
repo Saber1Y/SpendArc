@@ -2,7 +2,7 @@
 
 [← README](./README.md) · [Security](./security.md) · [Adversarial Testing](./adversarialtesting.md)
 
-BOTSpend fences an autonomous agent with **two independent controls** — one at the gas layer
+SpendArc fences an autonomous agent with **two independent controls** — one at the gas layer
 (ERC-4337), one at the contract layer (the vault). Neither substitutes the other.
 
 ---
@@ -14,7 +14,7 @@ flowchart LR
     A[Agent<br/>SimpleAccount<br/>0 balance] -->|UserOp| B{Fence 1 · gas layer<br/>paymaster signer:<br/>execute→VAULT only?}
     B -- no --> X[Not sponsored<br/>no gas → never bundled<br/>un-broadcastable]
     B -- yes --> C[EntryPoint v0.7<br/>+ Skandha bundler]
-    C --> D{Fence 2 · contract layer<br/>BOTSpendVault<br/>caps · allowlists · dedup}
+    C --> D{Fence 2 · contract layer<br/>SpendArcVault<br/>caps · allowlists · dedup}
     D -- pass --> E[transfer + AgentActionApproved + ReceiptIssued]
     D -- fail --> F[AgentActionBlocked · return false<br/>no revert · nothing moves]
 ```
@@ -34,8 +34,8 @@ This is a bounded, intentional tradeoff (see [security.md → F6](./security.md#
 
 | Component | Role |
 |-----------|------|
-| **`BOTSpendVault.sol`** | Fence 2. Holds funds, enforces per-agent policy (active/expiry, token + target allowlists, per-tx cap, rolling-24h daily cap, actionId dedup). ERC20-first (`SafeERC20`) + native path. No-revert-on-policy; hand-rolled reentrancy guard; checks-effects-interactions. |
-| **`BOTSpendPaymaster.sol`** | Fence 1. Extends eth-infinitism `BasePaymaster` (v0.7); reproduces `VerifyingPaymaster.getHash`/`parsePaymasterAndData` **verbatim** and adds an immutable-`VAULT` destination gate. Validation is **storage-free** (reads only immutables, empty context). |
+| **`SpendArcVault.sol`** | Fence 2. Holds funds, enforces per-agent policy (active/expiry, token + target allowlists, per-tx cap, rolling-24h daily cap, actionId dedup). ERC20-first (`SafeERC20`) + native path. No-revert-on-policy; hand-rolled reentrancy guard; checks-effects-interactions. |
+| **`SpendArcPaymaster.sol`** | Fence 1. Extends eth-infinitism `BasePaymaster` (v0.7); reproduces `VerifyingPaymaster.getHash`/`parsePaymasterAndData` **verbatim** and adds an immutable-`VAULT` destination gate. Validation is **storage-free** (reads only immutables, empty context). |
 | **SimpleAccount + Factory** (v0.7) | The agent's smart account. Holds nothing; only `execute`s. Counterfactual (CREATE2) address is where the vault policy is keyed. |
 | **Off-chain signer** (`client/src/signer.ts`) | The sponsor policy. Stateless: `sender ∈ registered accounts` AND `callData` decodes to `execute(dest = vault)` → sign the paymaster `getHash` over a short validity window; else refuse. Never reads vault state. |
 | **Agent client** (`client/src`) | Builds UserOps, packs v0.7 fields, computes `getHash`, submits via the bundler. |
@@ -65,7 +65,7 @@ sequenceDiagram
     participant O as Account owner key
     participant B as Skandha bundler
     participant E as EntryPoint v0.7
-    participant V as BOTSpendVault
+    participant V as SpendArcVault
 
     C->>C: build execute(vault, 0, executeSpend(...)) + freeze gas
     C->>S: sponsor(op)  (sender registered? dest==vault?)

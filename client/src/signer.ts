@@ -31,7 +31,7 @@ export const TTL_SECONDS = 300;
 
 /// SimpleAccount.execute(address,uint256,bytes) — the only outer call this signer sponsors.
 export const EXECUTE_SELECTOR: Hex = "0xb61d27f6";
-/// BOTSpendVault.executeSpend(address,address,uint256,bytes,bytes32) — optional inner-selector pin.
+/// SpendArcVault.executeSpend(address,address,uint256,bytes,bytes32) — optional inner-selector pin.
 export const EXECUTE_SPEND_SELECTOR: Hex = toFunctionSelector(
   "executeSpend(address,address,uint256,bytes,bytes32)",
 );

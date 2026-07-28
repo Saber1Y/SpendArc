@@ -11,7 +11,7 @@ to live on-chain acceptance, deliberately trying to break each fence.
 
 | Layer | What it proves | Where |
 |-------|----------------|-------|
-| Unit (Foundry) | Every policy branch + safety revert | `test/BOTSpendVault.t.sol`, `test/AgentAccount.t.sol`, `test/BOTSpendPaymaster.t.sol` |
+| Unit (Foundry) | Every policy branch + safety revert | `test/SpendArcVault.t.sol`, `test/AgentAccount.t.sol`, `test/SpendArcPaymaster.t.sol` |
 | Differential fuzz | `getHash` is byte-identical to the reference | `test/GetHashDifferential.t.sol` |
 | Fork (Foundry) | Works against the **real** EntryPoint on 968 | `test/fork/*` |
 | Equivalence + e2e (TS) | Off-chain signer ≡ on-chain; full handleOps | `client/test/*` |
@@ -22,7 +22,7 @@ to live on-chain acceptance, deliberately trying to break each fence.
 
 ## Vault — the policy surface (PRD scenarios 1–10 + more)
 
-`test/BOTSpendVault.t.sol` isolates each blocked *reason* so the ordering can't mask a bug:
+`test/SpendArcVault.t.sol` isolates each blocked *reason* so the ordering can't mask a bug:
 
 - Approved spend → `AgentActionApproved` + `ReceiptIssued`, funds move, `spentToday` advances.
 - Blocked, one per reason: **exceeds maxPerTx**, **target not allowlisted**, **token not allowlisted**,

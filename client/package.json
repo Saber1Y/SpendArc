@@ -1,9 +1,9 @@
 {
-  "name": "botspend-client",
+  "name": "spendarc-client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "BOTSpend agent client + off-chain paymaster sponsorship signer",
+  "description": "SpendArc agent client + off-chain paymaster sponsorship signer",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
