@@ -1,9 +1,11 @@
 "use client";
 
+import {useState} from "react";
 import {useAccount} from "wagmi";
 import {useApiAgents, useVaultState} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, truncateAddress} from "@/lib/format";
-import {explorerAddress, explorerTx} from "@/lib/chain";
+import {explorerAddress} from "@/lib/chain";
+import {isAddress, type Address} from "viem";
 
 function AgentCard({agent, state, loading}: {agent: {id: string; name: string; address: string}; state: ReturnType<typeof useVaultState>["data"]; loading: boolean}) {
   return (
@@ -114,8 +116,72 @@ function VaultSummary({state, loading}: {state: ReturnType<typeof useVaultState>
   );
 }
 
+function CreateAgentForm({onCreated}: {onCreated: () => void}) {
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const create = async () => {
+    if (!name.trim() || !isAddress(address)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/agents", {
+        method: "POST",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify({name: name.trim(), address}),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error ?? "Failed to create");
+      } else {
+        setName("");
+        setAddress("");
+        onCreated();
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="kpi-card p-6">
+      <div className="text-[13px] font-semibold text-text-primary mb-1">Create Agent</div>
+      <div className="text-[12px] text-text-muted mb-4">Register a new agent in the policy engine.</div>
+      <div className="flex gap-3 items-start">
+        <div className="flex-1 space-y-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Agent name"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent"
+          />
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="0x..."
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[13px] text-text-primary font-mono outline-none focus:border-accent"
+            spellCheck={false}
+          />
+        </div>
+        <button
+          onClick={create}
+          disabled={!name.trim() || !isAddress(address) || saving}
+          className="rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-50 shrink-0"
+        >
+          {saving ? "Creating..." : "Create"}
+        </button>
+      </div>
+      {error && <div className="text-[12px] text-state-blocked mt-2">{error}</div>}
+    </div>
+  );
+}
+
 export default function AgentsPage() {
-  const {agents, loading: agentsLoading} = useApiAgents();
+  const {agents, loading: agentsLoading, refetch: refetchAgents} = useApiAgents();
   const firstAgent = agents[0];
   const {data: state, loading: vaultLoading} = useVaultState(
     (firstAgent?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as `0x${string}`
@@ -130,13 +196,9 @@ export default function AgentsPage() {
       </div>
 
       <div className="space-y-6">
+        <CreateAgentForm onCreated={refetchAgents} />
         {agents.length === 0 && !agentsLoading ? (
-          <div className="kpi-card p-8 text-center">
-            <div className="text-[13px] text-text-secondary">No agents configured</div>
-            <div className="text-[12px] text-text-muted mt-1">
-              Create an agent via POST /api/agents to get started.
-            </div>
-          </div>
+          null
         ) : (
           agents.map((agent) => (
             <AgentCard key={agent.id} agent={agent} state={state} loading={loading} />
