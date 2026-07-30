@@ -1,12 +1,17 @@
 "use client";
 
+import {useState} from "react";
 import {useAccount} from "wagmi";
+import {writeContract, waitForTransactionReceipt} from "wagmi/actions";
 import {useVaultState, useApiTransactions, txToAction} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
+import {CONTRACTS, vaultAbi, usdcAbi} from "@/lib/contracts";
+import {wagmiConfig} from "@/lib/wagmi";
 import {TxChip} from "@/components/ui/Chip";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
+import {parseUnits} from "viem";
 
 function KPICard({label, value, sub, accent}: {label: string; value: string | number; sub?: string; accent?: boolean}) {
   return (
@@ -161,6 +166,146 @@ function RecentActivity({transactions, loading}: {transactions: ReturnType<typeo
   );
 }
 
+function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState>["data"]; refetch: () => void}) {
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [recipient, setRecipient] = useState("");
+  const [status, setStatus] = useState("");
+  const [sending, setSending] = useState(false);
+  const {address, isConnected} = useAccount();
+
+  const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
+
+  if (!state || !isConnected) return null;
+
+  const doDeposit = async () => {
+    if (!depositAmount || !address) return;
+    setSending(true);
+    setStatus("");
+    try {
+      const amount = parseUnits(depositAmount, 6);
+      // Approve USDC transfer
+      const approveHash = await writeContract(wagmiConfig, {
+        abi: usdcAbi,
+        address: CONTRACTS.usdc,
+        functionName: "approve",
+        args: [CONTRACTS.vault, amount],
+      });
+      setStatus("Approving USDC...");
+      await waitForTransactionReceipt(wagmiConfig, {hash: approveHash});
+
+      // Transfer USDC to vault
+      const txHash = await writeContract(wagmiConfig, {
+        abi: usdcAbi,
+        address: CONTRACTS.usdc,
+        functionName: "transfer",
+        args: [CONTRACTS.vault, amount],
+      });
+      setStatus(`Depositing... ${truncateHash(txHash)}`);
+      await waitForTransactionReceipt(wagmiConfig, {hash: txHash});
+
+      setStatus("Deposit confirmed");
+      setDepositAmount("");
+      setTimeout(refetch, 1000);
+    } catch (e) {
+      setStatus((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const doWithdraw = async () => {
+    if (!withdrawAmount || !recipient) return;
+    setSending(true);
+    setStatus("");
+    try {
+      const amount = parseUnits(withdrawAmount, 6);
+      const txHash = await writeContract(wagmiConfig, {
+        abi: vaultAbi,
+        address: CONTRACTS.vault,
+        functionName: "withdrawTokens",
+        args: [CONTRACTS.usdc, recipient as `0x${string}`, amount],
+      });
+      setStatus(`Withdrawing... ${truncateHash(txHash)}`);
+      await waitForTransactionReceipt(wagmiConfig, {hash: txHash});
+      setStatus("Withdrawal confirmed");
+      setWithdrawAmount("");
+      setTimeout(refetch, 1000);
+    } catch (e) {
+      setStatus((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="kpi-card p-5">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-3">Vault Funds</div>
+      <div className="text-[13px] font-medium text-text-primary mb-4">
+        Balance: {formatUsdc(state.vaultBalance)} USDC
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <div className="text-[12px] text-text-muted mb-1">Deposit USDC</div>
+          <div className="flex gap-2">
+            <input
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(e.target.value)}
+              placeholder="0.00"
+              type="number"
+              min="0"
+              step="0.01"
+              className="flex-1 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent"
+            />
+            <button
+              onClick={doDeposit}
+              disabled={!depositAmount || sending}
+              className="rounded-lg bg-accent px-4 py-1.5 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+            >
+              {sending ? "..." : "Deposit"}
+            </button>
+          </div>
+        </div>
+
+        {isOwner && (
+          <div className="border-t border-border pt-3">
+            <div className="text-[12px] text-text-muted mb-1">Withdraw USDC (owner only)</div>
+            <div className="flex gap-2 mb-2">
+              <input
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="0x recipient"
+                className="flex-1 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] text-text-primary font-mono outline-none focus:border-accent"
+                spellCheck={false}
+              />
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                placeholder="0.00"
+                type="number"
+                min="0"
+                step="0.01"
+                className="flex-1 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent"
+              />
+              <button
+                onClick={doWithdraw}
+                disabled={!withdrawAmount || !recipient || sending}
+                className="rounded-lg bg-state-blocked px-4 py-1.5 text-[13px] font-medium text-white hover:opacity-80 disabled:opacity-50"
+              >
+                {sending ? "..." : "Withdraw"}
+              </button>
+            </div>
+          </div>
+        )}
+        {status && <div className="text-[12px] text-text-muted mt-1 break-all">{status}</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
   const {data: state, loading, refetch} = useVaultState(agent);
@@ -251,6 +396,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <PolicyHealthCard state={state} />
           <AgentHealthCard state={state} loading={loading} agent={agent} />
+          <VaultFundCard state={state} refetch={refetch} />
         </div>
       </div>
     </div>

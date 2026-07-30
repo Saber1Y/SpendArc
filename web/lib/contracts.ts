@@ -24,6 +24,7 @@ export const vaultAbi = parseAbi([
   "function setAllowedTarget(address agent,address target,bool allowed)",
   "function setAllowedToken(address agent,address token,bool allowed)",
   "function revokeAgent(address agent)",
+  "function withdrawTokens(address token,address to,uint256 amount)",
   // events
   "event AgentActionApproved(address indexed agent,address indexed target,address indexed token,uint256 amount,bytes32 actionId)",
   "event AgentActionBlocked(address indexed agent,address indexed target,address indexed token,uint256 amount,string reason)",
@@ -38,10 +39,12 @@ export const vaultAbi = parseAbi([
 
 export const usdcAbi = parseAbi([
   "function balanceOf(address) view returns (uint256)",
+  "function allowance(address owner,address spender) view returns (uint256)",
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)",
+  "function approve(address spender,uint256 amount) returns (bool)",
   "function transfer(address to,uint256 amount) returns (bool)",
   "event Transfer(address indexed from,address indexed to,uint256 value)",
 ]);
 
-export const entryPointAbi = parseAbi(["function balanceOf(address) view returns (uint256)"]);
+
