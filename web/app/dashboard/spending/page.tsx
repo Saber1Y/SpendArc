@@ -1,7 +1,7 @@
 "use client";
 
 import {useState} from "react";
-import {useApiTransactions} from "@/lib/hooks";
+import {useApiTransactions, useApiAgents} from "@/lib/hooks";
 import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {StateBadge} from "@/components/ui/StateBadge";
@@ -18,9 +18,7 @@ interface RunState {
 
 type Filter = "all" | "confirmed" | "blocked" | "failed";
 
-const AGENT_ID = "agent_c720ee6d";
-
-function RunAgentSection({refetch}: {refetch: () => void}) {
+function RunAgentSection({agentId, refetch}: {agentId: string; refetch: () => void}) {
   const [run, setRun] = useState<RunState>({phase: "idle"});
   const [recipient, setRecipient] = useState("0x3F5b96A494061F7338Da529e3047809Ac6a7FB84");
   const [amount, setAmount] = useState("1.5");
@@ -38,7 +36,7 @@ function RunAgentSection({refetch}: {refetch: () => void}) {
       const res = await fetch("/api/payments/request", {
         method: "POST",
         headers: {"content-type": "application/json"},
-        body: JSON.stringify({agentId: AGENT_ID, recipient, amount, token: "usdc", purpose}),
+        body: JSON.stringify({agentId, recipient, amount, token: "usdc", purpose}),
       });
 
       const data = await res.json();
@@ -249,7 +247,10 @@ function TransactionTable({transactions, loading, filter}: {transactions: Return
 }
 
 export default function SpendingPage() {
-  const {transactions, loading, refetch} = useApiTransactions();
+  const {agents} = useApiAgents();
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
+  const agentId = selectedAgentId || agents[0]?.id || "";
+  const {transactions, loading, refetch} = useApiTransactions(agentId);
   const [filter, setFilter] = useState<Filter>("all");
 
   const filters: {value: Filter; label: string; count: number}[] = [
@@ -267,7 +268,28 @@ export default function SpendingPage() {
       </div>
 
       <div className="space-y-6">
-        <RunAgentSection refetch={refetch} />
+        {agents.length > 0 && (
+          <div className="kpi-card p-4 flex items-center gap-4">
+            <span className="text-[12px] text-text-muted">Agent:</span>
+            <select
+              value={agentId}
+              onChange={(e) => setSelectedAgentId(e.target.value)}
+              className="rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent"
+            >
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name} ({a.id.slice(0, 12)}...)</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {agentId ? (
+          <RunAgentSection agentId={agentId} refetch={refetch} />
+        ) : (
+          <div className="kpi-card p-8 text-center">
+            <div className="text-[13px] text-text-secondary">No agent configured</div>
+            <div className="text-[12px] text-text-muted mt-1">Create an agent on the Agents page first.</div>
+          </div>
+        )}
 
         <div className="kpi-card">
           <div className="px-5 pt-5 pb-3 flex items-center justify-between">
