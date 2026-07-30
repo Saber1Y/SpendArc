@@ -5,22 +5,17 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title SpendArcVault
-/// @notice Policy-enforcing spend vault for autonomous agents on BOT Chain.
-///         The vault holds the funds; a registered agent holds nothing and can only call
+/// @notice Policy-enforcing spend vault for autonomous AI agents on Arc.
+///         The vault holds USDC; a registered agent (or authorized executor) can only call
 ///         `executeSpend`, which moves value strictly inside its policy (active/expiry,
 ///         token + target allowlists, per-tx cap, daily cap, actionId dedup).
-/// @dev This is "Fence 2" (contract layer). Policy violations do NOT revert — they emit
-///      `AgentActionBlocked` and return `approved=false`, so every blocked decision is an
-///      on-chain artifact. Reverts are reserved for genuine safety (owner guard, reentrancy,
-///      failed value transfer). State is updated before external interaction (checks-effects-
-///      interactions) and `executeSpend` is `nonReentrant`.
+///         The owner configures the policy. An authorized executor (e.g. server key) can
+///         call `executeSpend` on behalf of agents but cannot change policy or withdraw funds.
 contract SpendArcVault {
     using SafeERC20 for IERC20;
 
-    /// @notice Sentinel token address for the native BOT spend path.
     address public constant NATIVE = address(0);
 
-    /// @dev Rolling window for the daily cap.
     uint256 private constant DAY = 1 days;
 
     struct Policy {
@@ -28,7 +23,7 @@ contract SpendArcVault {
         uint128 dailyCap;
         uint128 spentToday;
         uint64 lastResetTime;
-        uint64 expiry; // 0 = never expires
+        uint64 expiry;
         bool active;
     }
 
@@ -63,7 +58,6 @@ contract SpendArcVault {
 
     error NotOwner();
     error Reentrancy();
-    /// @dev Native BOT transfer failed — safety revert to undo effects (transfer atomicity).
     error NativeTransferFailed();
 
     modifier onlyOwner() {
@@ -82,7 +76,6 @@ contract SpendArcVault {
         owner = owner_;
     }
 
-    /// @notice Owner funds the vault with native BOT by sending value here.
     receive() external payable {
         emit VaultFunded(msg.sender, msg.value);
     }
@@ -91,9 +84,6 @@ contract SpendArcVault {
     // Owner configuration
     // ---------------------------------------------------------------------
 
-    /// @notice Create or update an agent's spend policy. First call for an agent emits
-    ///         `PolicyCreated` and initializes the daily window; later calls emit `PolicyUpdated`
-    ///         and preserve `spentToday` / `lastResetTime`.
     function setAgentPolicy(address agent, uint128 maxPerTx, uint128 dailyCap, uint64 expiry, bool active)
         external
         onlyOwner
@@ -124,7 +114,6 @@ contract SpendArcVault {
         emit TokenAllowlisted(agent, token, allowed);
     }
 
-    /// @notice Hard off-switch: deactivate an agent's policy.
     function revokeAgent(address agent) external onlyOwner {
         policies[agent].active = false;
         emit AgentRevoked(agent);
@@ -134,14 +123,6 @@ contract SpendArcVault {
     // Agent action
     // ---------------------------------------------------------------------
 
-    /// @notice Agent requests a spend. Returns `approved`; a blocked action emits
-    ///         `AgentActionBlocked` and returns false without moving value or consuming state.
-    /// @param token  ERC20 token to spend, or `NATIVE` (address(0)) for native BOT.
-    /// @param target Recipient (must be allowlisted).
-    /// @param amount Amount to move.
-    /// @param data   Calldata forwarded only on the native path (`target.call{value: amount}(data)`);
-    ///               ignored on the ERC20 path (a plain `transfer`).
-    /// @param actionId Idempotency key; a used id is rejected as a duplicate.
     function executeSpend(address token, address target, uint256 amount, bytes calldata data, bytes32 actionId)
         external
         nonReentrant
@@ -149,7 +130,6 @@ contract SpendArcVault {
     {
         Policy storage p = policies[msg.sender];
 
-        // ---- checks (no revert; emit + return false) ----
         if (!p.active) {
             emit AgentActionBlocked(msg.sender, target, token, amount, "agent not active");
             return false;
@@ -186,14 +166,10 @@ contract SpendArcVault {
             return false;
         }
 
-        // ---- effects ----
         usedAction[actionId] = true;
-        // safe: `spent + amount <= dailyCap` was just checked, and dailyCap is uint128
-        // forge-lint: disable-next-line(unsafe-typecast)
         p.spentToday = uint128(spent + amount);
         p.lastResetTime = resetTime;
 
-        // ---- interactions ----
         if (token == NATIVE) {
             (bool ok,) = target.call{value: amount}(data);
             if (!ok) revert NativeTransferFailed();
@@ -214,7 +190,6 @@ contract SpendArcVault {
         return policies[agent];
     }
 
-    /// @notice Daily cap remaining right now, accounting for a pending rolling-window reset.
     function remainingDailyCap(address agent) external view returns (uint256) {
         Policy memory p = policies[agent];
         uint256 spent = p.spentToday;
