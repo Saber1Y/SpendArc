@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Script} from "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {SpendArcVault} from "../src/SpendArcVault.sol";
 
 /// @notice Deploy SpendArcVault on Arc testnet.
