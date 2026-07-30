@@ -183,6 +183,15 @@ contract SpendArcVault {
     }
 
     // ---------------------------------------------------------------------
+    // Owner withdrawal
+    // ---------------------------------------------------------------------
+
+    /// @notice Owner can withdraw any ERC20 token held by the vault.
+    function withdrawTokens(address token, address to, uint256 amount) external onlyOwner {
+        IERC20(token).safeTransfer(to, amount);
+    }
+
+    // ---------------------------------------------------------------------
     // Views
     // ---------------------------------------------------------------------
 
