@@ -161,7 +161,11 @@ export default function PoliciesPage() {
               ))}
             </div>
           ) : error && !state ? (
-            <div className="text-[12px] text-state-blocked">Failed to load policy.</div>
+            <div className="text-[12px] text-state-blocked">
+              Failed to load policy
+              <button onClick={refetch} className="ml-3 underline hover:no-underline">Retry</button>
+              <div className="text-[11px] text-state-blocked/70 mt-1 break-all">{error.message}</div>
+            </div>
           ) : state ? (
             <div className="space-y-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
