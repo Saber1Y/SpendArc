@@ -1,12 +1,12 @@
 import {createConfig, http} from "wagmi";
 import {injected} from "wagmi/connectors";
-import {botChain} from "./chain";
+import {arcChain} from "./arc";
 
-/** Light wallet-connect: injected/MetaMask only, no heavy kit. Owner writes (increment b). */
+/** Light wallet-connect: injected/MetaMask only, no heavy kit. Owner writes. */
 export const wagmiConfig = createConfig({
-  chains: [botChain],
+  chains: [arcChain],
   connectors: [injected()],
-  transports: {[botChain.id]: http()},
+  transports: {[arcChain.id]: http()},
   ssr: true,
 });
 

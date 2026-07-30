@@ -1,20 +1,15 @@
 import {formatUnits, type Address} from "viem";
-import {MUSD_DECIMALS} from "./contracts";
+import {USDC_DECIMALS} from "./contracts";
 
-/** mUSD is 6 decimals — base-unit math everywhere, format only at display. */
-export function formatMusd(base: bigint, opts: {maxFractionDigits?: number} = {}): string {
-  const s = formatUnits(base, MUSD_DECIMALS);
+/** USDC is 6 decimals — base-unit math everywhere, format only at display. */
+export function formatUsdc(base: bigint, opts: {maxFractionDigits?: number} = {}): string {
+  const s = formatUnits(base, USDC_DECIMALS);
   const n = Number(s);
   return n.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: opts.maxFractionDigits ?? 2,
   });
-}
-
-/** Native BOT is 18 decimals. */
-export function formatBot(wei: bigint, digits = 4): string {
-  return Number(formatUnits(wei, 18)).toLocaleString("en-US", {maximumFractionDigits: digits});
-}
+} 
 
 export function truncateAddress(addr: string, lead = 6, tail = 4): string {
   if (!addr) return "";
