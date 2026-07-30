@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 ] as const;
 
 const SECONDARY_ITEMS = [
-  {href: "/dashboard", label: "Settings", icon: "settings"},
+  {href: "/dashboard/settings", label: "Settings", icon: "settings"},
 ] as const;
 
 function NavIcon({icon}: {icon: string}) {
