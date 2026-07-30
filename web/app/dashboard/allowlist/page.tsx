@@ -172,7 +172,7 @@ function TokenSection({isOwner, agent}: {
   isOwner: boolean;
   agent: Address;
 }) {
-  const [token, setToken] = useState(CONTRACTS.usdc);
+  const [token, setToken] = useState<string>(CONTRACTS.usdc);
   const write = useOwnerWrite(() => {});
   const [apiTokens, setApiTokens] = useState<{id: number; address: string; label: string}[]>([]);
   const [saving, setSaving] = useState(false);
