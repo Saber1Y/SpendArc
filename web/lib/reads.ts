@@ -20,7 +20,16 @@ export interface VaultState {
   vaultOwner: Address;
 }
 
-/** One batched load of every read the dashboard shows, keyed on the agent ADDRESS. */
+async function sequential(tasks: (() => Promise<unknown>)[], gap = 150) {
+  const results: unknown[] = [];
+  for (let i = 0; i < tasks.length; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, gap));
+    results.push(await tasks[i]());
+  }
+  return results;
+}
+
+/** One batched load of every read the dashboard shows, keyed on the agent ADDRESS. Sequential reads with delay to avoid Arc testnet RPC rate limits. */
 export async function readVaultState(agent: Address): Promise<VaultState> {
   const vault = CONTRACTS.vault;
   const [
@@ -30,13 +39,13 @@ export async function readVaultState(agent: Address): Promise<VaultState> {
     tokenAllowed,
     agentCode,
     vaultOwner,
-  ] = await Promise.all([
-    publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]}),
-    publicClient.readContract({address: vault, abi: vaultAbi, functionName: "getPolicy", args: [agent]}),
-    publicClient.readContract({address: vault, abi: vaultAbi, functionName: "remainingDailyCap", args: [agent]}),
-    publicClient.readContract({address: vault, abi: vaultAbi, functionName: "allowedToken", args: [agent, CONTRACTS.usdc]}),
-    publicClient.getCode({address: agent}),
-    publicClient.readContract({address: vault, abi: vaultAbi, functionName: "owner", args: []}),
+  ] = await sequential([
+    () => publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]}),
+    () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "getPolicy", args: [agent]}),
+    () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "remainingDailyCap", args: [agent]}),
+    () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "allowedToken", args: [agent, CONTRACTS.usdc]}),
+    () => publicClient.getCode({address: agent}),
+    () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "owner", args: []}),
   ]);
 
   return {
@@ -44,7 +53,7 @@ export async function readVaultState(agent: Address): Promise<VaultState> {
     policy: policy as Policy,
     remainingDailyCap: remainingDailyCap as bigint,
     tokenAllowed: tokenAllowed as boolean,
-    agentDeployed: agentCode !== undefined && agentCode !== "0x",
+    agentDeployed: (agentCode as `0x${string}`) !== undefined && (agentCode as `0x${string}`) !== "0x",
     vaultOwner: vaultOwner as Address,
   };
 }
