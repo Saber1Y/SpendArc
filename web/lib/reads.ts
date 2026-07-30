@@ -1,4 +1,4 @@
-import {getAbiItem, type Address, type Hex} from "viem";
+import type {Address} from "viem";
 import {publicClient} from "./chain";
 import {CONTRACTS, vaultAbi, usdcAbi} from "./contracts";
 
@@ -57,55 +57,8 @@ export interface AgentAction {
   token: Address;
   amount: bigint;
   reason?: string;
-  actionId?: Hex;
+  actionId?: string;
   blockNumber: bigint;
-  txHash: Hex;
+  txHash: string;
   logIndex: number;
-}
-
-const approvedEvent = getAbiItem({abi: vaultAbi, name: "AgentActionApproved"});
-const blockedEvent = getAbiItem({abi: vaultAbi, name: "AgentActionBlocked"});
-
-/** Read approved/blocked actions for one agent over [fromBlock, toBlock]. */
-export async function readActions(agent: Address, fromBlock: bigint, toBlock: bigint): Promise<AgentAction[]> {
-  const [approved, blocked] = await Promise.all([
-    publicClient.getLogs({address: CONTRACTS.vault, event: approvedEvent, args: {agent}, fromBlock, toBlock}),
-    publicClient.getLogs({address: CONTRACTS.vault, event: blockedEvent, args: {agent}, fromBlock, toBlock}),
-  ]);
-
-  const out: AgentAction[] = [];
-  for (const l of approved) {
-    out.push({
-      kind: "approved",
-      agent: l.args.agent!,
-      target: l.args.target!,
-      token: l.args.token!,
-      amount: l.args.amount!,
-      actionId: l.args.actionId,
-      blockNumber: l.blockNumber!,
-      txHash: l.transactionHash!,
-      logIndex: l.logIndex!,
-    });
-  }
-  for (const l of blocked) {
-    out.push({
-      kind: "blocked",
-      agent: l.args.agent!,
-      target: l.args.target!,
-      token: l.args.token!,
-      amount: l.args.amount!,
-      reason: l.args.reason,
-      blockNumber: l.blockNumber!,
-      txHash: l.transactionHash!,
-      logIndex: l.logIndex!,
-    });
-  }
-  return out;
-}
-
-export const sortNewestFirst = (a: AgentAction, b: AgentAction): number =>
-  a.blockNumber === b.blockNumber ? b.logIndex - a.logIndex : Number(b.blockNumber - a.blockNumber);
-
-export async function latestBlock(): Promise<bigint> {
-  return publicClient.getBlockNumber();
 }
