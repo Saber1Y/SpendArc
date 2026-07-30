@@ -2,7 +2,7 @@
 
 import {useCallback, useEffect, useRef, useState} from "react";
 import type {Address} from "viem";
-import {DEPLOY_BLOCK} from "./contracts";
+
 import {readVaultState, readActions, latestBlock, sortNewestFirst, type VaultState, type AgentAction} from "./reads";
 
 export type AsyncState<T> = {
@@ -43,14 +43,14 @@ export function useActionHistory(agent: Address) {
   const [actions, setActions] = useState<AgentAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>(undefined);
-  const lastSeen = useRef<bigint>(DEPLOY_BLOCK - 1n);
+  const lastSeen = useRef<bigint>(0n);
   const seenKeys = useRef<Set<string>>(new Set());
   const agentRef = useRef<Address>(agent);
 
   // reset the cache if the agent changes (multi-agent later)
   if (agentRef.current !== agent) {
     agentRef.current = agent;
-    lastSeen.current = DEPLOY_BLOCK - 1n;
+    lastSeen.current = 0n;
     seenKeys.current = new Set();
   }
 

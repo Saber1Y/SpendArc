@@ -1,6 +1,6 @@
 import {decodeEventLog, getAbiItem, type Hex} from "viem";
 import {publicClient} from "./chain";
-import {vaultAbi, CONTRACTS, PROOF_TX} from "./contracts";
+import {vaultAbi, CONTRACTS} from "./contracts";
 
 export interface ProofResult {
   kind: "approved" | "blocked";
@@ -10,18 +10,20 @@ export interface ProofResult {
   live: boolean; // true = fetched on-chain, false = static snapshot fallback
 }
 
+const ZERO_HASH = "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex;
+
 /** Known real values (from the backend run) — the honest fallback if the live read fails. */
 const SNAPSHOT: Record<"approved" | "blocked", ProofResult> = {
-  approved: {kind: "approved", amount: 4_000_000n, txHash: PROOF_TX.approved as Hex, live: false},
-  blocked: {kind: "blocked", amount: 6_000_000n, reason: "exceeds maxPerTx", txHash: PROOF_TX.blocked as Hex, live: false},
+  approved: {kind: "approved", amount: 4_000_000n, txHash: ZERO_HASH, live: false},
+  blocked: {kind: "blocked", amount: 6_000_000n, reason: "exceeds maxPerTx", txHash: ZERO_HASH, live: false},
 };
 
 const approvedEvent = getAbiItem({abi: vaultAbi, name: "AgentActionApproved"});
 const blockedEvent = getAbiItem({abi: vaultAbi, name: "AgentActionBlocked"});
 
 /** Live-fetch a proof tx's vault event via raw receipt (no viem formatter), decode the amount/reason. */
-export async function fetchProof(kind: "approved" | "blocked"): Promise<ProofResult> {
-  const txHash = (kind === "approved" ? PROOF_TX.approved : PROOF_TX.blocked) as Hex;
+export async function fetchProof(kind: "approved" | "blocked", txHash?: Hex): Promise<ProofResult> {
+  if (!txHash) return SNAPSHOT[kind];
   const evt = kind === "approved" ? approvedEvent : blockedEvent;
   try {
     const receipt = (await publicClient.request({

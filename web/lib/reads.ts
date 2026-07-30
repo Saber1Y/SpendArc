@@ -1,6 +1,6 @@
 import {getAbiItem, type Address, type Hex} from "viem";
 import {publicClient} from "./chain";
-import {CONTRACTS, DEMO, vaultAbi, erc20Abi, entryPointAbi} from "./contracts";
+import {CONTRACTS, vaultAbi, usdcAbi} from "./contracts";
 
 export interface Policy {
   maxPerTx: bigint;
@@ -15,12 +15,7 @@ export interface VaultState {
   vaultBalance: bigint;
   policy: Policy;
   remainingDailyCap: bigint;
-  targetAllowed: boolean; // vendor
-  tokenAllowed: boolean; // mUSD
-  paymasterDeposit: bigint;
-  agentNative: bigint;
-  agentDeposit: bigint;
-  ownerNative: bigint;
+  tokenAllowed: boolean;
   agentDeployed: boolean;
   vaultOwner: Address;
 }
@@ -32,40 +27,25 @@ export async function readVaultState(agent: Address): Promise<VaultState> {
     vaultBalance,
     policy,
     remainingDailyCap,
-    targetAllowed,
     tokenAllowed,
-    paymasterDeposit,
-    agentNative,
-    agentDeposit,
-    ownerNative,
     agentCode,
     vaultOwner,
   ] = await Promise.all([
-    publicClient.readContract({address: CONTRACTS.mockUSD, abi: erc20Abi, functionName: "balanceOf", args: [vault]}),
+    publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]}),
     publicClient.readContract({address: vault, abi: vaultAbi, functionName: "getPolicy", args: [agent]}),
     publicClient.readContract({address: vault, abi: vaultAbi, functionName: "remainingDailyCap", args: [agent]}),
-    publicClient.readContract({address: vault, abi: vaultAbi, functionName: "allowedTarget", args: [agent, DEMO.vendor]}),
-    publicClient.readContract({address: vault, abi: vaultAbi, functionName: "allowedToken", args: [agent, CONTRACTS.mockUSD]}),
-    publicClient.readContract({address: CONTRACTS.entryPoint, abi: entryPointAbi, functionName: "balanceOf", args: [CONTRACTS.paymaster]}),
-    publicClient.getBalance({address: agent}),
-    publicClient.readContract({address: CONTRACTS.entryPoint, abi: entryPointAbi, functionName: "balanceOf", args: [agent]}),
-    publicClient.getBalance({address: DEMO.agentOwnerEOA}),
+    publicClient.readContract({address: vault, abi: vaultAbi, functionName: "allowedToken", args: [agent, CONTRACTS.usdc]}),
     publicClient.getCode({address: agent}),
     publicClient.readContract({address: vault, abi: vaultAbi, functionName: "owner", args: []}),
   ]);
 
   return {
-    vaultBalance,
+    vaultBalance: vaultBalance as bigint,
     policy: policy as Policy,
-    remainingDailyCap,
-    targetAllowed,
-    tokenAllowed,
-    paymasterDeposit,
-    agentNative,
-    agentDeposit,
-    ownerNative,
-    agentDeployed: !!agentCode && agentCode !== "0x",
-    vaultOwner,
+    remainingDailyCap: remainingDailyCap as bigint,
+    tokenAllowed: tokenAllowed as boolean,
+    agentDeployed: agentCode !== undefined && agentCode !== "0x",
+    vaultOwner: vaultOwner as Address,
   };
 }
 

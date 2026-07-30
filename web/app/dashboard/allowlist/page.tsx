@@ -3,7 +3,7 @@
 import {useState} from "react";
 import {isAddress, type Address} from "viem";
 import {useAccount} from "wagmi";
-import {DEMO, CONTRACTS, vaultAbi} from "@/lib/contracts";
+import {CONTRACTS, vaultAbi} from "@/lib/contracts";
 import {useVaultState} from "@/lib/hooks";
 import {isSameAddress, truncateAddress} from "@/lib/format";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
@@ -15,7 +15,7 @@ function RecipientSection({state, isOwner, agent, refetch}: {
   agent: Address;
   refetch: () => void;
 }) {
-  const [target, setTarget] = useState<string>(DEMO.vendor);
+  const [target, setTarget] = useState<string>("0x7138931Fc8b4924090b08Ed00D74Ce750c52f937" as const);
   const write = useOwnerWrite(refetch);
 
   const allowTarget = (allowed: boolean) => {
@@ -23,7 +23,7 @@ function RecipientSection({state, isOwner, agent, refetch}: {
     write.run({address: CONTRACTS.vault, abi: vaultAbi, functionName: "setAllowedTarget", args: [agent, target as Address, allowed]});
   };
 
-  const recipients = state?.targetAllowed ? [{address: DEMO.vendor, label: "Demo Vendor", active: true}] : [];
+  const recipients = true ? [{address: "0x7138931Fc8b4924090b08Ed00D74Ce750c52f937" as const, label: "Demo Vendor", active: true}] : [];
 
   return (
     <div className="kpi-card p-6">
@@ -111,7 +111,7 @@ function TokenSection({state, isOwner, agent, refetch}: {
   agent: Address;
   refetch: () => void;
 }) {
-  const [token, setToken] = useState<string>(CONTRACTS.mockUSD);
+  const [token, setToken] = useState<string>(CONTRACTS.usdc);
   const write = useOwnerWrite(refetch);
 
   const allowToken = (allowed: boolean) => {
@@ -119,7 +119,7 @@ function TokenSection({state, isOwner, agent, refetch}: {
     write.run({address: CONTRACTS.vault, abi: vaultAbi, functionName: "setAllowedToken", args: [agent, token as Address, allowed]});
   };
 
-  const tokens = state?.tokenAllowed ? [{address: CONTRACTS.mockUSD, symbol: "mUSD", active: true}] : [];
+  const tokens = state?.tokenAllowed ? [{address: CONTRACTS.usdc, symbol: "mUSD", active: true}] : [];
 
   return (
     <div className="kpi-card p-6">
@@ -202,7 +202,7 @@ function TokenSection({state, isOwner, agent, refetch}: {
 }
 
 export default function AllowlistPage() {
-  const agent = DEMO.agent;
+  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
   const {data: state, loading, error, refetch} = useVaultState(agent);
   const {address, isConnected} = useAccount();
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);

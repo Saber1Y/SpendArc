@@ -3,9 +3,9 @@
 import {useState} from "react";
 import {parseUnits, type Address} from "viem";
 import {useAccount} from "wagmi";
-import {DEMO, CONTRACTS, MUSD_DECIMALS, vaultAbi} from "@/lib/contracts";
+import {CONTRACTS, USDC_DECIMALS, vaultAbi} from "@/lib/contracts";
 import {useVaultState} from "@/lib/hooks";
-import {isSameAddress, formatMusd, formatExpiry, truncateAddress} from "@/lib/format";
+import {isSameAddress, formatUsdc, formatExpiry, truncateAddress} from "@/lib/format";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
 import {Field, TextInput, Toggle} from "@/components/ui/Input";
 
@@ -26,8 +26,8 @@ function PolicyStatus({active, expiry}: {active: boolean; expiry: bigint}) {
 
 function PolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable<ReturnType<typeof useVaultState>["data"]>; refetch: () => void}) {
   const [editing, setEditing] = useState(false);
-  const [maxPerTx, setMaxPerTx] = useState(formatMusd(state.policy.maxPerTx));
-  const [dailyCap, setDailyCap] = useState(formatMusd(state.policy.dailyCap));
+  const [maxPerTx, setMaxPerTx] = useState(formatUsdc(state.policy.maxPerTx));
+  const [dailyCap, setDailyCap] = useState(formatUsdc(state.policy.dailyCap));
   const [days, setDays] = useState("30");
   const [active, setActive] = useState(state.policy.active);
   const write = useOwnerWrite(() => { refetch(); setEditing(false); });
@@ -46,8 +46,8 @@ function PolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable
   const submit = () => {
     let mpt: bigint, dc: bigint;
     try {
-      mpt = parseUnits(maxPerTx || "0", MUSD_DECIMALS);
-      dc = parseUnits(dailyCap || "0", MUSD_DECIMALS);
+      mpt = parseUnits(maxPerTx || "0", USDC_DECIMALS);
+      dc = parseUnits(dailyCap || "0", USDC_DECIMALS);
     } catch { return; }
     const d = Number(days);
     const expiry = !d || d <= 0 ? 0n : BigInt(Math.floor(Date.now() / 1000) + d * 86400);
@@ -131,7 +131,7 @@ function EmergencyRevoke({agent, isOwner, refetch}: {agent: Address; isOwner: bo
 }
 
 export default function PoliciesPage() {
-  const agent = DEMO.agent;
+  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
   const {data: state, loading, error, refetch} = useVaultState(agent);
   const {address, isConnected} = useAccount();
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
@@ -167,19 +167,19 @@ export default function PoliciesPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Per-Tx Limit</div>
-                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatMusd(state.policy.maxPerTx)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
+                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.maxPerTx)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
                 </div>
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Daily Limit</div>
-                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatMusd(state.policy.dailyCap)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
+                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.dailyCap)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
                 </div>
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Spent Today</div>
-                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatMusd(state.policy.spentToday)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
+                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.spentToday)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
                 </div>
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Remaining</div>
-                  <div className="text-[18px] font-semibold text-state-approved tabular-nums">{formatMusd(state.remainingDailyCap)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
+                  <div className="text-[18px] font-semibold text-state-approved tabular-nums">{formatUsdc(state.remainingDailyCap)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
                 </div>
               </div>
 
@@ -188,7 +188,7 @@ export default function PoliciesPage() {
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">Allowlisted Recipients</div>
                   <div className="flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 text-[12px] text-accent font-medium">
-                      {truncateAddress(DEMO.vendor)}
+                      {truncateAddress("0x7138931Fc8b4924090b08Ed00D74Ce750c52f937" as const)}
                     </span>
                   </div>
                 </div>

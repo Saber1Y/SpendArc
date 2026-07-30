@@ -7,10 +7,8 @@ import {StateBadge} from "@/components/ui/StateBadge";
 import {TxChip, Chip} from "@/components/ui/Chip";
 import {Skeleton} from "@/components/ui/Row";
 import {fetchProof, type ProofResult} from "@/lib/proof";
-import {formatMusd, truncateHash} from "@/lib/format";
+import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
-import {DEMO} from "@/lib/contracts";
-import {truncateAddress} from "@/lib/format";
 
 function ProofColumn({data}: {data: ProofResult | undefined}) {
   const approved = data?.kind === "approved";
@@ -29,7 +27,7 @@ function ProofColumn({data}: {data: ProofResult | undefined}) {
         <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">executeSpend</span>
         {data ? (
           <div className="mt-1 text-heading-lg leading-none text-text-primary" style={{fontWeight: 600}}>
-            {formatMusd(data.amount)} <span className="text-heading-sm text-text-muted">mUSD</span>
+            {formatUsdc(data.amount)} <span className="text-heading-sm text-text-muted">USDC</span>
           </div>
         ) : (
           <Skeleton className="mt-2 h-12 w-40" />
@@ -51,7 +49,7 @@ function ProofColumn({data}: {data: ProofResult | undefined}) {
         <div className="flex items-center justify-between gap-3">
           <span className="text-text-muted">Result</span>
           <span className="text-text-primary">
-            {approved ? `vendor received ${data ? formatMusd(data.amount) : "-"} mUSD` : "nothing moved"}
+            {approved ? `vendor received ${data ? formatUsdc(data.amount) : "-"} USDC` : "nothing moved"}
           </span>
         </div>
         <div className="flex items-center justify-between gap-3">
@@ -89,8 +87,8 @@ export function LiveProof() {
             Same agent. One variable.
           </h2>
           <p className="mt-5 text-body text-text-secondary">
-            Two real sponsored actions from agent <span className="text-text-primary font-medium">{truncateAddress(DEMO.agent)}</span>,
-            identical but for the amount - 4 mUSD vs 6 mUSD against a 5 mUSD per-tx cap. The difference lives entirely
+            Two real sponsored actions from             agent <span className="text-text-primary font-medium">{truncateAddress("0x0000000000000000000000000000000000000000")}</span>,
+            identical but for the amount - 4 USDC vs 6 USDC against a 5 USDC per-tx cap. The difference lives entirely
             in the events and the untouched balances.
           </p>
         </div>

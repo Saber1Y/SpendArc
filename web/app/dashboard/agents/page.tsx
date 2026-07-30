@@ -1,9 +1,9 @@
 "use client";
 
 import {useAccount} from "wagmi";
-import {DEMO, CONTRACTS} from "@/lib/contracts";
+import {CONTRACTS} from "@/lib/contracts";
 import {useVaultState} from "@/lib/hooks";
-import {isSameAddress, formatMusd, formatBot, truncateAddress} from "@/lib/format";
+import {isSameAddress, formatUsdc, truncateAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
 
 function AgentCard({state, loading, agent}: {state: NonNullable<ReturnType<typeof useVaultState>["data"]> | undefined; loading: boolean; agent: string}) {
@@ -36,8 +36,8 @@ function AgentCard({state, loading, agent}: {state: NonNullable<ReturnType<typeo
         </div>
         <div className="flex items-center justify-between py-2 border-b border-border">
           <span className="text-[12px] text-text-muted">Owner address</span>
-          <a href={explorerAddress(DEMO.agentOwnerEOA)} target="_blank" rel="noopener noreferrer" className="text-[12px] font-mono text-accent hover:underline">
-            {truncateAddress(DEMO.agentOwnerEOA)}
+          <a href={explorerAddress("0x772887b05B19A046c242Fa19eEC6a78496d3b692" as const)} target="_blank" rel="noopener noreferrer" className="text-[12px] font-mono text-accent hover:underline">
+            {truncateAddress("0x772887b05B19A046c242Fa19eEC6a78496d3b692" as const)}
           </a>
         </div>
         <div className="flex items-center justify-between py-2 border-b border-border">
@@ -93,13 +93,13 @@ function FundsComparison({state, loading}: {state: NonNullable<ReturnType<typeof
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-text-muted">Native balance</span>
               <span className="text-[13px] font-medium text-text-primary tabular-nums">
-                {loading && !state ? "-" : <>{formatBot(state?.agentNative ?? 0n)} <span className="text-text-muted">BOT</span></>}
+                {loading && !state ? "-" : <>{(0n).toString()} <span className="text-text-muted">BOT</span></>}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-text-muted">Paymaster deposit</span>
               <span className="text-[13px] font-medium text-text-primary tabular-nums">
-                {loading && !state ? "-" : <>{formatBot(state?.agentDeposit ?? 0n)} <span className="text-text-muted">BOT</span></>}
+                {loading && !state ? "-" : <>{(0n).toString()} <span className="text-text-muted">BOT</span></>}
               </span>
             </div>
           </div>
@@ -120,13 +120,13 @@ function FundsComparison({state, loading}: {state: NonNullable<ReturnType<typeof
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-text-muted">Vault balance</span>
               <span className="text-[13px] font-medium text-accent tabular-nums">
-                {loading && !state ? "-" : <>{formatMusd(state?.vaultBalance ?? 0n)} <span className="text-text-muted">mUSD</span></>}
+                {loading && !state ? "-" : <>{formatUsdc(state?.vaultBalance ?? 0n)} <span className="text-text-muted">mUSD</span></>}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-text-muted">Owner balance</span>
               <span className="text-[13px] font-medium text-text-primary tabular-nums">
-                {loading && !state ? "-" : <>{formatBot(state?.ownerNative ?? 0n)} <span className="text-text-muted">BOT</span></>}
+                {loading && !state ? "-" : <>{(0n).toString()} <span className="text-text-muted">BOT</span></>}
               </span>
             </div>
           </div>
@@ -149,14 +149,14 @@ function SponsorInfo({state, loading}: {state: NonNullable<ReturnType<typeof use
         <div className="flex items-center justify-between py-2 border-b border-border">
           <span className="text-[12px] text-text-muted">Paymaster deposit</span>
           <span className="text-[13px] font-medium text-text-primary tabular-nums">
-            {loading && !state ? "-" : <>{formatBot(state?.paymasterDeposit ?? 0n)} <span className="text-text-muted">BOT</span></>}
+            {loading && !state ? "-" : <>{(0n).toString()} <span className="text-text-muted">BOT</span></>}
           </span>
         </div>
         <div className="flex items-center justify-between py-2 border-b border-border">
           <span className="text-[12px] text-text-muted">Gas sponsorship</span>
           {loading && !state ? (
             <span className="text-[12px] text-text-muted">-</span>
-          ) : state && state.paymasterDeposit > 0n ? (
+          ) : state && false ? (
             <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-approved">
               <span className="h-1.5 w-1.5 rounded-full bg-state-approved" /> Active
             </span>
@@ -176,7 +176,7 @@ function SponsorInfo({state, loading}: {state: NonNullable<ReturnType<typeof use
 }
 
 export default function AgentsPage() {
-  const agent = DEMO.agent;
+  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
   const {data: state, loading, error, refetch} = useVaultState(agent);
 
   return (

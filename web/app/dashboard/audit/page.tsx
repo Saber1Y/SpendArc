@@ -1,9 +1,8 @@
 "use client";
 
 import {useState} from "react";
-import {DEMO} from "@/lib/contracts";
 import {useActionHistory} from "@/lib/hooks";
-import {formatMusd, truncateAddress, truncateHash} from "@/lib/format";
+import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {TxChip} from "@/components/ui/Chip";
 
@@ -46,7 +45,7 @@ function AuditEntry({action}: {action: ReturnType<typeof useActionHistory>["acti
         </div>
         <div className="text-[13px] text-text-primary">
           Agent <span className="font-mono text-accent">{truncateAddress(action.agent)}</span> requested{" "}
-          <span className="font-medium">{formatMusd(action.amount)} mUSD</span> to{" "}
+          <span className="font-medium">{formatUsdc(action.amount)} mUSD</span> to{" "}
           <span className="font-mono">{truncateAddress(action.target)}</span>
         </div>
         {action.kind === "blocked" && action.reason && (
@@ -70,7 +69,7 @@ function AuditEntry({action}: {action: ReturnType<typeof useActionHistory>["acti
 }
 
 export default function AuditPage() {
-  const agent = DEMO.agent;
+  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
   const {actions, loading, error, refetch} = useActionHistory(agent);
   const [filter, setFilter] = useState<EventFilter>("all");
 

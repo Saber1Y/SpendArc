@@ -3,7 +3,7 @@
 import {useState} from "react";
 import {useWriteContract} from "wagmi";
 import type {Abi} from "viem";
-import {botChain} from "./chain";
+import {arcChain} from "./arc";
 import {waitForReceiptRaw} from "./txwait";
 
 export type WriteArgs = {
@@ -26,7 +26,7 @@ export function useOwnerWrite(refetch: () => void) {
   const run = async (args: WriteArgs) => {
     setStatus({pending: true});
     try {
-      const hash = await writeContractAsync({...args, chainId: botChain.id});
+      const hash = await writeContractAsync({...args, chainId: arcChain.id});
       const result = await waitForReceiptRaw(hash);
       if (result === "reverted") {
         setStatus({pending: false, error: "Transaction reverted on-chain"});

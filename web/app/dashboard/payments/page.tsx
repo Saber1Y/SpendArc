@@ -1,8 +1,7 @@
 "use client";
 
 import {useVaultState, useActionHistory} from "@/lib/hooks";
-import {DEMO} from "@/lib/contracts";
-import {formatMusd, formatBot} from "@/lib/format";
+import {formatUsdc} from "@/lib/format";
 
 function StatCard({label, value, sub, accent}: {label: string; value: string | number; sub?: string; accent?: boolean}) {
   return (
@@ -33,7 +32,7 @@ function RecentSettlement({actions}: {actions: ReturnType<typeof useActionHistor
       {approved.map((action) => (
         <div key={`${action.txHash}:${action.logIndex}`} className="flex items-center justify-between py-3">
           <div>
-            <div className="text-[13px] font-medium text-text-primary">{formatMusd(action.amount)} mUSD</div>
+            <div className="text-[13px] font-medium text-text-primary">{formatUsdc(action.amount)} mUSD</div>
             <div className="text-[12px] text-text-muted mt-0.5">Settled on BOT Chain 968</div>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-state-approved-light text-[11px] font-medium text-state-approved">
@@ -46,7 +45,7 @@ function RecentSettlement({actions}: {actions: ReturnType<typeof useActionHistor
 }
 
 export default function PaymentsPage() {
-  const agent = DEMO.agent;
+  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
   const {data: state, loading} = useVaultState(agent);
   const history = useActionHistory(agent);
 
@@ -76,7 +75,7 @@ export default function PaymentsPage() {
         <StatCard label="Total Settled" value={approvedCount} sub="payments" accent />
         <StatCard label="Pending" value={0} sub="payments" />
         <StatCard label="Failed" value={blockedCount} sub="blocked" />
-        <StatCard label="USDC Contract" value="mUSD" sub={state ? `Balance: ${formatMusd(state.vaultBalance)} mUSD` : ""} />
+        <StatCard label="USDC Contract" value="mUSD" sub={state ? `Balance: ${formatUsdc(state.vaultBalance)} mUSD` : ""} />
       </div>
 
       {/* Recent settlements */}

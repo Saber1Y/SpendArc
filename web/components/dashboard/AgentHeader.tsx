@@ -31,9 +31,9 @@ export function AgentHeader({
 
       <div className="flex items-center gap-3">
         <GaslessStatusBadge
-          paymasterDeposit={state?.paymasterDeposit}
-          agentNative={state?.agentNative}
-          agentDeposit={state?.agentDeposit}
+          paymasterDeposit={state?.vaultBalance}
+          agentNative={0n}
+          agentDeposit={0n}
           loading={loading && !state}
         />
         <button

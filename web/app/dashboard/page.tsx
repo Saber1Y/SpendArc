@@ -1,9 +1,8 @@
 "use client";
 
 import {useAccount} from "wagmi";
-import {DEMO} from "@/lib/contracts";
 import {useVaultState, useActionHistory} from "@/lib/hooks";
-import {isSameAddress, formatMusd, truncateAddress, truncateHash} from "@/lib/format";
+import {isSameAddress, formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx, explorerAddress} from "@/lib/chain";
 import {TxChip} from "@/components/ui/Chip";
 import {StateBadge} from "@/components/ui/StateBadge";
@@ -42,15 +41,15 @@ function PolicyHealthCard({state}: {state: ReturnType<typeof useVaultState>["dat
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Per-transaction limit</span>
-          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatMusd(policy.maxPerTx)} mUSD</span>
+          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(policy.maxPerTx)} mUSD</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Daily spending limit</span>
-          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatMusd(policy.dailyCap)} mUSD</span>
+          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(policy.dailyCap)} mUSD</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Remaining daily allowance</span>
-          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatMusd(remainingDailyCap)} mUSD</span>
+          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(remainingDailyCap)} mUSD</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Policy expiry</span>
@@ -61,7 +60,7 @@ function PolicyHealthCard({state}: {state: ReturnType<typeof useVaultState>["dat
         <div className="border-t border-border my-2" />
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Allowlisted recipients</span>
-          <span className="text-[13px] font-medium text-text-primary">{state.targetAllowed ? "1" : "0"}</span>
+          <span className="text-[13px] font-medium text-text-primary">{"1"}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Allowlisted tokens</span>
@@ -101,20 +100,20 @@ function AgentHealthCard({state, loading, agent}: {state: ReturnType<typeof useV
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Vault balance</span>
           <span className="text-[13px] font-medium text-text-primary tabular-nums">
-            {state ? <>{formatMusd(state.vaultBalance)} <span className="text-text-muted">mUSD</span></> : "-"}
+            {state ? <>{formatUsdc(state.vaultBalance)} <span className="text-text-muted">mUSD</span></> : "-"}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Current allowance</span>
           <span className="text-[13px] font-medium text-text-primary tabular-nums">
-            {state ? <>{formatMusd(state.remainingDailyCap)} <span className="text-text-muted">mUSD</span></> : "-"}
+            {state ? <>{formatUsdc(state.remainingDailyCap)} <span className="text-text-muted">mUSD</span></> : "-"}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Gas status</span>
           {loading ? (
             <span className="text-[12px] text-text-muted">-</span>
-          ) : state && state.paymasterDeposit > 0n ? (
+          ) : state && false ? (
             <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-approved">
               <span className="h-1.5 w-1.5 rounded-full bg-state-approved" /> Funded
             </span>
@@ -157,7 +156,7 @@ function RecentActivity({actions, loading}: {actions: ReturnType<typeof useActio
           <StateBadge kind={action.kind} />
           <div className="flex-1 min-w-0">
             <div className="text-[13px] font-medium text-text-primary">
-              {formatMusd(action.amount)} mUSD
+              {formatUsdc(action.amount)} mUSD
               <span className="text-text-muted ml-1.5">to {truncateAddress(action.target)}</span>
             </div>
             <div className="text-[12px] text-text-muted mt-0.5">
@@ -172,7 +171,7 @@ function RecentActivity({actions, loading}: {actions: ReturnType<typeof useActio
 }
 
 export default function DashboardPage() {
-  const agent = DEMO.agent;
+  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
   const {data: state, loading, error, refetch} = useVaultState(agent);
   const history = useActionHistory(agent);
   const {address, isConnected} = useAccount();
@@ -206,9 +205,9 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <KPICard label="Total USDC Controlled" value={state ? `$${formatMusd(state.vaultBalance)}` : "$0"} sub="mUSD in vault" accent />
-        <KPICard label="Spent Today" value={state ? `$${formatMusd(spentToday)}` : "$0"} sub="mUSD" />
-        <KPICard label="Remaining Daily" value={state ? `$${formatMusd(state.remainingDailyCap)}` : "$0"} sub="mUSD" />
+        <KPICard label="Total USDC Controlled" value={state ? `$${formatUsdc(state.vaultBalance)}` : "$0"} sub="mUSD in vault" accent />
+        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "$0"} sub="mUSD" />
+        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "$0"} sub="mUSD" />
         <KPICard label="Approved" value={approvedCount} sub="transactions" />
         <KPICard label="Blocked" value={blockedCount} sub="transactions" />
         <KPICard

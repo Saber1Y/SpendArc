@@ -9,8 +9,8 @@ import {Skeleton} from "@/components/ui/Row";
 import {Button} from "@/components/ui/Button";
 import {Field, TextInput, Toggle} from "@/components/ui/Input";
 import {Check, Hand} from "@/components/ui/Icons";
-import {formatMusd, formatExpiry, truncateAddress} from "@/lib/format";
-import {CONTRACTS, DEMO, MUSD_DECIMALS, vaultAbi} from "@/lib/contracts";
+import {formatUsdc, formatExpiry, truncateAddress} from "@/lib/format";
+import {CONTRACTS, USDC_DECIMALS, vaultAbi} from "@/lib/contracts";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
 import type {VaultState} from "@/lib/reads";
 
@@ -83,20 +83,16 @@ export function PolicyPanel({
           </div>
 
           <div className="grid grid-cols-2 gap-6">
-            <StatTile label="Per-tx cap" value={<>{formatMusd(state.policy.maxPerTx)} <span className="text-body text-fog">mUSD</span></>} />
-            <StatTile label="Daily cap" value={<>{formatMusd(state.policy.dailyCap)} <span className="text-body text-fog">mUSD</span></>} />
+            <StatTile label="Per-tx cap" value={<>{formatUsdc(state.policy.maxPerTx)} <span className="text-body text-fog">USDC</span></>} />
+            <StatTile label="Daily cap" value={<>{formatUsdc(state.policy.dailyCap)} <span className="text-body text-fog">USDC</span></>} />
           </div>
 
           <div>
             <span className="text-caption uppercase tracking-[0.06em] text-fog">Allowlisted</span>
             <div className="mt-2 flex flex-wrap gap-2">
-              <Chip tone={state.targetAllowed ? "accent" : "outline"}>
-                {state.targetAllowed ? <Check width={12} height={12} /> : null}
-                target {truncateAddress(DEMO.vendor)}
-              </Chip>
               <Chip tone={state.tokenAllowed ? "accent" : "outline"}>
                 {state.tokenAllowed ? <Check width={12} height={12} /> : null}
-                mUSD {truncateAddress(CONTRACTS.mockUSD)}
+                USDC {truncateAddress(CONTRACTS.usdc)}
               </Chip>
             </div>
           </div>
@@ -117,16 +113,16 @@ function PolicyForm({
   write: ReturnType<typeof useOwnerWrite>;
   onCancel: () => void;
 }) {
-  const [maxPerTx, setMaxPerTx] = useState(formatMusd(state.policy.maxPerTx));
-  const [dailyCap, setDailyCap] = useState(formatMusd(state.policy.dailyCap));
+  const [maxPerTx, setMaxPerTx] = useState(formatUsdc(state.policy.maxPerTx));
+  const [dailyCap, setDailyCap] = useState(formatUsdc(state.policy.dailyCap));
   const [days, setDays] = useState("30");
   const [active, setActive] = useState(state.policy.active);
 
   const submit = () => {
     let mpt: bigint, dc: bigint;
     try {
-      mpt = parseUnits(maxPerTx || "0", MUSD_DECIMALS);
-      dc = parseUnits(dailyCap || "0", MUSD_DECIMALS);
+      mpt = parseUnits(maxPerTx || "0", USDC_DECIMALS);
+      dc = parseUnits(dailyCap || "0", USDC_DECIMALS);
     } catch {
       return;
     }
@@ -143,10 +139,10 @@ function PolicyForm({
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Per-tx cap (mUSD)">
+        <Field label="Per-tx cap (USDC)">
           <TextInput inputMode="decimal" value={maxPerTx} onChange={(e) => setMaxPerTx(e.target.value)} />
         </Field>
-        <Field label="Daily cap (mUSD)">
+        <Field label="Daily cap (USDC)">
           <TextInput inputMode="decimal" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} />
         </Field>
         <Field label="Expiry (days from now)" hint="0 = never expires">

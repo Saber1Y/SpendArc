@@ -6,7 +6,7 @@ import {Panel, PanelNote} from "./Panel";
 import {Button} from "@/components/ui/Button";
 import {Field, TextInput} from "@/components/ui/Input";
 import {ConnectionHint} from "./OwnerConnectButton";
-import {CONTRACTS, DEMO, MUSD_DECIMALS, erc20Abi, vaultAbi} from "@/lib/contracts";
+import {CONTRACTS, USDC_DECIMALS, usdcAbi, vaultAbi} from "@/lib/contracts";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
 
 export function OwnerControls({
@@ -24,19 +24,19 @@ export function OwnerControls({
 }) {
   const write = useOwnerWrite(refetch);
   const [fundAmt, setFundAmt] = useState("100");
-  const [target, setTarget] = useState<string>(DEMO.vendor);
-  const [token, setToken] = useState<string>(CONTRACTS.mockUSD);
+  const [target, setTarget] = useState<string>("");
+  const [token, setToken] = useState<string>(CONTRACTS.usdc);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const disabled = !isOwner || write.pending;
 
   const fund = () => {
     let amt: bigint;
     try {
-      amt = parseUnits(fundAmt || "0", MUSD_DECIMALS);
+      amt = parseUnits(fundAmt || "0", USDC_DECIMALS);
     } catch {
       return;
     }
-    write.run({address: CONTRACTS.mockUSD, abi: erc20Abi, functionName: "mint", args: [CONTRACTS.vault, amt]});
+    write.run({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "mint", args: [CONTRACTS.vault, amt]});
   };
   const allowTarget = (allowed: boolean) => {
     if (!isAddress(target)) return;
@@ -61,7 +61,7 @@ export function OwnerControls({
       <div className={`flex flex-col gap-6 ${!isOwner ? "pointer-events-none opacity-50" : ""}`}>
         {/* Fund vault */}
         <div className="flex flex-col gap-3">
-          <Field label="Fund vault (mint mUSD)">
+          <Field label="Fund vault (mint USDC)">
             <div className="flex gap-2">
               <TextInput inputMode="decimal" value={fundAmt} onChange={(e) => setFundAmt(e.target.value)} className="flex-1" />
               <Button variant="primary" size="sm" onClick={fund} disabled={disabled}>

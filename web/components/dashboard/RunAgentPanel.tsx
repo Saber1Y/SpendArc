@@ -7,7 +7,7 @@ import {Row} from "@/components/ui/Row";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {Chip, TxChip} from "@/components/ui/Chip";
 import {Dot} from "@/components/ui/Icons";
-import {formatMusd, truncateHash} from "@/lib/format";
+import {formatUsdc, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {pollUserOpReceipt, resolveOutcome, type RunOutcome} from "@/lib/bundler";
 
@@ -35,7 +35,7 @@ function RunResult({run}: {run: RunState}) {
           <Dot width={9} height={9} className="animate-pulse text-periwinkle" />
           {run.phase === "running" ? "sponsoring…" : "waiting for inclusion…"}
         </Chip>
-        <div className="text-body-sm text-fog tabular-nums">{run.amount ? formatMusd(run.amount) : "—"} mUSD</div>
+        <div className="text-body-sm text-fog tabular-nums">{run.amount ? formatUsdc(run.amount) : "—"} USDC</div>
       </Row>
     );
   }
@@ -55,7 +55,7 @@ function RunResult({run}: {run: RunState}) {
       <Row>
         {o ? <StateBadge kind={o.kind} /> : <Chip tone="mint">included</Chip>}
         <div className="min-w-0 flex-1 text-body-sm">
-          <span className="text-aubergine tabular-nums">{run.amount ? formatMusd(run.amount) : "—"} mUSD</span>{" "}
+          <span className="text-aubergine tabular-nums">{run.amount ? formatUsdc(run.amount) : "—"} USDC</span>{" "}
           <span className="text-fog">
             {o?.kind === "blocked" ? `held · ${o.reason ?? "policy"}` : o?.kind === "approved" ? "approved · vendor paid" : "landed"}
           </span>
@@ -125,10 +125,10 @@ export function RunAgentPanel({refetch, className = ""}: {refetch: () => void; c
       </p>
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button variant="primary" size="sm" onClick={() => doRun(4_000_000n)} disabled={busy || configured === null}>
-          Spend 4 mUSD
+          Spend 4 USDC
         </Button>
         <Button variant="secondary" size="sm" onClick={() => doRun(6_000_000n)} disabled={busy || configured === null}>
-          Spend 6 mUSD
+          Spend 6 USDC
         </Button>
       </div>
       {run.phase !== "idle" ? <RunResult run={run} /> : null}

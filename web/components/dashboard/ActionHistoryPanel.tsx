@@ -3,7 +3,7 @@ import {Row, Skeleton} from "@/components/ui/Row";
 import {Button} from "@/components/ui/Button";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {TxChip} from "@/components/ui/Chip";
-import {formatMusd, truncateAddress, truncateHash} from "@/lib/format";
+import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import type {AgentAction} from "@/lib/reads";
 
@@ -14,7 +14,7 @@ function ActionRow({action}: {action: AgentAction}) {
       <StateBadge kind={action.kind} />
       <div className="min-w-0 flex-1">
         <div className="text-body text-aubergine tabular-nums">
-          {formatMusd(action.amount)} mUSD <span className="text-fog">→ {truncateAddress(action.target)}</span>
+          {formatUsdc(action.amount)} USDC <span className="text-fog">→ {truncateAddress(action.target)}</span>
         </div>
         <div className="text-body-sm text-fog">
           {blocked ? `held · ${action.reason ?? "policy"}` : "approved · vendor paid"}

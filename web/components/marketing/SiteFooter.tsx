@@ -5,7 +5,7 @@ import {ArrowUpRight} from "@/components/ui/Icons";
 
 const links = [
   {label: "Vault contract", href: explorerAddress(CONTRACTS.vault)},
-  {label: "Paymaster", href: explorerAddress(CONTRACTS.paymaster)},
+  {label: "USDC", href: explorerAddress(CONTRACTS.usdc)},
   {label: "Explorer", href: "https://scan.bohr.life"},
 ];
 

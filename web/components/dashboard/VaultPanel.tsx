@@ -3,7 +3,7 @@ import {StatTile} from "@/components/ui/StatTile";
 import {Skeleton} from "@/components/ui/Row";
 import {Button} from "@/components/ui/Button";
 import {DailyCapMeter} from "./DailyCapMeter";
-import {formatMusd} from "@/lib/format";
+import {formatUsdc} from "@/lib/format";
 import type {VaultState} from "@/lib/reads";
 
 export function VaultPanel({
@@ -39,7 +39,7 @@ export function VaultPanel({
             label="Vault balance"
             value={
               <>
-                {formatMusd(state.vaultBalance)} <span className="text-body text-fog">mUSD</span>
+                {formatUsdc(state.vaultBalance)} <span className="text-body text-fog">USDC</span>
               </>
             }
             sub={state.vaultBalance === 0n ? "fund the vault to enable spends" : undefined}

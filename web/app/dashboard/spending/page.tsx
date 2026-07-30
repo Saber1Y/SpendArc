@@ -2,9 +2,8 @@
 
 import {useEffect, useState} from "react";
 import {useAccount} from "wagmi";
-import {DEMO} from "@/lib/contracts";
 import {useVaultState, useActionHistory} from "@/lib/hooks";
-import {formatMusd, truncateAddress, truncateHash} from "@/lib/format";
+import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {pollUserOpReceipt, resolveOutcome, type RunOutcome} from "@/lib/bundler";
 import {StateBadge} from "@/components/ui/StateBadge";
@@ -24,7 +23,7 @@ type Filter = "all" | "approved" | "blocked" | "failed" | "pending";
 function RunAgentSection({refetch}: {refetch: () => void}) {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [run, setRun] = useState<RunState>({phase: "idle"});
-  const [recipient, setRecipient] = useState<string>(DEMO.vendor);
+  const [recipient, setRecipient] = useState<string>("0x7138931Fc8b4924090b08Ed00D74Ce750c52f937" as const);
   const [amount, setAmount] = useState("4");
   const [purpose, setPurpose] = useState("");
 
@@ -159,7 +158,7 @@ function RunAgentSection({refetch}: {refetch: () => void}) {
             <StateBadge kind={run.outcome.kind} />
           </div>
           <div className="text-[13px] text-text-primary">
-            Requested: ${formatMusd(run.amount!)} mUSD
+            Requested: ${formatUsdc(run.amount!)} mUSD
           </div>
           {run.outcome.kind === "blocked" && (
             <div className="text-[12px] text-text-muted mt-1">
@@ -228,7 +227,7 @@ function TransactionTable({actions, loading, filter}: {actions: ReturnType<typeo
           {filtered.map((action) => (
             <tr key={`${action.txHash}:${action.logIndex}`} className="hover:bg-surface-hover/50 transition-colors">
               <td className="py-3 px-4"><StateBadge kind={action.kind} /></td>
-              <td className="py-3 px-4 font-medium text-text-primary tabular-nums">{formatMusd(action.amount)} mUSD</td>
+              <td className="py-3 px-4 font-medium text-text-primary tabular-nums">{formatUsdc(action.amount)} mUSD</td>
               <td className="py-3 px-4 text-text-muted">mUSD</td>
               <td className="py-3 px-4 text-text-muted font-mono">{truncateAddress(action.target)}</td>
               <td className="py-3 px-4 text-text-muted">
@@ -246,7 +245,7 @@ function TransactionTable({actions, loading, filter}: {actions: ReturnType<typeo
 }
 
 export default function SpendingPage() {
-  const agent = DEMO.agent;
+  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
   const {data: state, loading, error, refetch} = useVaultState(agent);
   const history = useActionHistory(agent);
   const [filter, setFilter] = useState<Filter>("all");
