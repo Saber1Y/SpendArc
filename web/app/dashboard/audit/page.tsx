@@ -1,84 +1,72 @@
 "use client";
 
 import {useState} from "react";
-import {useActionHistory} from "@/lib/hooks";
-import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
-import {explorerTx} from "@/lib/chain";
-import {TxChip} from "@/components/ui/Chip";
+import {useApiAuditLogs, type ApiAuditLog} from "@/lib/hooks";
 
 type EventFilter = "all" | "approved" | "blocked";
 
-function EventType({kind, reason}: {kind: "approved" | "blocked"; reason?: string}) {
-  if (kind === "approved") {
+function EventType({action}: {action: string}) {
+  if (action === "transaction_created" || action === "transaction_updated") {
+    const isApproved = action === "transaction_created";
     return (
       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-state-approved-light text-[11px] font-medium text-state-approved">
         <span className="h-1 w-1 rounded-full bg-state-approved" />
-        Payment Approved
+        {isApproved ? "Transaction" : "Updated"}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-state-blocked-light text-[11px] font-medium text-state-blocked">
       <span className="h-1 w-1 rounded-full bg-state-blocked" />
-      Payment Blocked
+      Event
     </span>
   );
 }
 
-function AuditEntry({action}: {action: ReturnType<typeof useActionHistory>["actions"][0]}) {
-  const timestamp = new Date(); // Would come from block timestamp in production
+function AuditEntry({log}: {log: ApiAuditLog}) {
+  const timestamp = new Date(log.created_at * 1000);
   const timeStr = timestamp.toLocaleTimeString("en-US", {hour: "2-digit", minute: "2-digit"});
   const dateStr = timestamp.toLocaleDateString("en-US", {month: "short", day: "numeric"});
 
+  let details = log.details;
+  try {
+    const parsed = JSON.parse(log.details);
+    details = Object.entries(parsed)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" ");
+  } catch {}
+
   return (
     <div className="flex items-start gap-4 py-4 border-b border-border last:border-0">
-      {/* Timeline dot */}
       <div className="flex flex-col items-center pt-1">
-        <span className={`h-2 w-2 rounded-full ${action.kind === "approved" ? "bg-state-approved" : "bg-state-blocked"}`} />
+        <span className="h-2 w-2 rounded-full bg-accent" />
       </div>
-
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <EventType kind={action.kind} />
+          <EventType action={log.action} />
           <span className="text-[11px] text-text-muted">{dateStr} {timeStr}</span>
         </div>
-        <div className="text-[13px] text-text-primary">
-          Agent <span className="font-mono text-accent">{truncateAddress(action.agent)}</span> requested{" "}
-          <span className="font-medium">{formatUsdc(action.amount)} mUSD</span> to{" "}
-          <span className="font-mono">{truncateAddress(action.target)}</span>
+        <div className="text-[13px] text-text-primary break-all">
+          <span className="font-medium">{log.action}</span>{" "}
+          <span className="text-text-muted">on {log.entity_type}</span>
         </div>
-        {action.kind === "blocked" && action.reason && (
-          <div className="text-[12px] text-text-muted mt-1">
-            Reason: {action.reason}
-          </div>
-        )}
-        {action.kind === "approved" && (
-          <div className="text-[12px] text-text-muted mt-1">
-            Payment executed and settled
-          </div>
-        )}
+        <div className="text-[12px] text-text-muted mt-1 font-mono">{details}</div>
       </div>
-
-      {/* Transaction hash */}
-      <div className="shrink-0">
-        <TxChip href={explorerTx(action.txHash)} label={truncateHash(action.txHash)} />
-      </div>
+      <div className="shrink-0 text-[11px] text-text-muted tabular-nums">#{log.id}</div>
     </div>
   );
 }
 
 export default function AuditPage() {
-  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
-  const {actions, loading, error, refetch} = useActionHistory(agent);
+  const {logs, loading, error, refetch} = useApiAuditLogs(100);
   const [filter, setFilter] = useState<EventFilter>("all");
 
-  const filtered = filter === "all" ? actions : actions.filter((a) => a.kind === filter);
+  const filtered = filter === "all" ? logs : logs.filter((l) => l.action.includes(filter === "approved" ? "created" : "blocked"));
 
   const filters: {value: EventFilter; label: string; count: number}[] = [
-    {value: "all", label: "All Events", count: actions.length},
-    {value: "approved", label: "Approved", count: actions.filter((a) => a.kind === "approved").length},
-    {value: "blocked", label: "Blocked", count: actions.filter((a) => a.kind === "blocked").length},
+    {value: "all", label: "All Events", count: logs.length},
+    {value: "approved", label: "Created", count: logs.filter((l) => l.action.includes("created")).length},
+    {value: "blocked", label: "Blocked", count: logs.filter((l) => l.action.includes("blocked")).length},
   ];
 
   return (
@@ -88,7 +76,6 @@ export default function AuditPage() {
         <p className="text-[13px] text-text-muted mt-1">Complete timeline of spending decisions and policy events</p>
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-2 mb-6">
         {filters.map((f) => (
           <button
@@ -106,7 +93,6 @@ export default function AuditPage() {
         ))}
       </div>
 
-      {/* Audit timeline */}
       <div className="kpi-card">
         <div className="px-5">
           {loading && filtered.length === 0 ? (
@@ -137,8 +123,8 @@ export default function AuditPage() {
             </div>
           ) : (
             <div>
-              {filtered.map((action) => (
-                <AuditEntry key={`${action.txHash}:${action.logIndex}`} action={action} />
+              {filtered.map((log) => (
+                <AuditEntry key={log.id} log={log} />
               ))}
             </div>
           )}

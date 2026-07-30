@@ -1,7 +1,9 @@
 "use client";
 
-import {useVaultState, useActionHistory} from "@/lib/hooks";
+import {useVaultState} from "@/lib/hooks";
+import {useApiTransactions, txToAction} from "@/lib/hooks";
 import {formatUsdc} from "@/lib/format";
+import {CONTRACTS} from "@/lib/contracts";
 
 function StatCard({label, value, sub, accent}: {label: string; value: string | number; sub?: string; accent?: boolean}) {
   return (
@@ -15,10 +17,10 @@ function StatCard({label, value, sub, accent}: {label: string; value: string | n
   );
 }
 
-function RecentSettlement({actions}: {actions: ReturnType<typeof useActionHistory>["actions"]}) {
-  const approved = actions.filter((a) => a.kind === "approved").slice(0, 5);
+function RecentSettlement({transactions}: {transactions: ReturnType<typeof useApiTransactions>["transactions"]}) {
+  const confirmed = transactions.filter((t) => t.execution_status === "CONFIRMED").slice(0, 5);
 
-  if (approved.length === 0) {
+  if (confirmed.length === 0) {
     return (
       <div className="py-12 text-center">
         <div className="text-[13px] text-text-secondary">No settlements yet</div>
@@ -29,11 +31,11 @@ function RecentSettlement({actions}: {actions: ReturnType<typeof useActionHistor
 
   return (
     <div className="divide-y divide-border">
-      {approved.map((action) => (
-        <div key={`${action.txHash}:${action.logIndex}`} className="flex items-center justify-between py-3">
+      {confirmed.map((tx) => (
+        <div key={tx.id} className="flex items-center justify-between py-3">
           <div>
-            <div className="text-[13px] font-medium text-text-primary">{formatUsdc(action.amount)} mUSD</div>
-            <div className="text-[12px] text-text-muted mt-0.5">Settled on BOT Chain 968</div>
+            <div className="text-[13px] font-medium text-text-primary">{formatUsdc(BigInt(tx.amount))} USDC</div>
+            <div className="text-[12px] text-text-muted mt-0.5">Settled on Arc Testnet</div>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-state-approved-light text-[11px] font-medium text-state-approved">
             Settled
@@ -45,12 +47,12 @@ function RecentSettlement({actions}: {actions: ReturnType<typeof useActionHistor
 }
 
 export default function PaymentsPage() {
-  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
-  const {data: state, loading} = useVaultState(agent);
-  const history = useActionHistory(agent);
+  const {transactions, loading} = useApiTransactions();
+  const vault = "0xf23147Df55089eA6bA87BF24bb4eEE6f7Cea182b" as const;
 
-  const approvedCount = history.actions.filter((a) => a.kind === "approved").length;
-  const blockedCount = history.actions.filter((a) => a.kind === "blocked").length;
+  const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;
+  const blockedCount = transactions.filter((t) => t.execution_status === "BLOCKED").length;
+  const failedCount = transactions.filter((t) => t.execution_status === "FAILED").length;
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
@@ -59,40 +61,29 @@ export default function PaymentsPage() {
         <p className="text-[13px] text-text-muted mt-1">Payment infrastructure and settlement status</p>
       </div>
 
-      {/* Network info */}
       <div className="kpi-card p-5 mb-6">
         <div className="flex items-center gap-3">
           <span className="h-2 w-2 rounded-full bg-state-approved" />
           <div>
             <div className="text-[13px] font-medium text-text-primary">Settlement Network</div>
-            <div className="text-[12px] text-text-muted">Arc Testnet (via BOT Chain 968)</div>
+            <div className="text-[12px] text-text-muted">Arc Testnet (5042002)</div>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Settled" value={approvedCount} sub="payments" accent />
-        <StatCard label="Pending" value={0} sub="payments" />
-        <StatCard label="Failed" value={blockedCount} sub="blocked" />
-        <StatCard label="USDC Contract" value="mUSD" sub={state ? `Balance: ${formatUsdc(state.vaultBalance)} mUSD` : ""} />
+        <StatCard label="Total Settled" value={confirmedCount} sub="payments" accent />
+        <StatCard label="Pending" value={transactions.length - confirmedCount - blockedCount - failedCount} sub="payments" />
+        <StatCard label="Failed" value={failedCount + blockedCount} sub="blocked" />
+        <StatCard label="Vault" value="Arc Testnet" sub={`Vault: ${vault.slice(0, 10)}...`} />
       </div>
 
-      {/* Recent settlements */}
       <div className="kpi-card">
         <div className="px-5 pt-5 pb-3">
           <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Recent Settlements</div>
         </div>
         <div className="px-5 pb-5">
-          <RecentSettlement actions={history.actions} />
-        </div>
-      </div>
-
-      {/* Arc integration placeholder */}
-      <div className="mt-6 rounded-lg border border-dashed border-border p-8 text-center">
-        <div className="text-[13px] font-medium text-text-secondary mb-1">Arc USDC Integration</div>
-        <div className="text-[12px] text-text-muted max-w-md mx-auto">
-          Full Arc settlement rail integration coming soon. Currently using BOT Chain 968 with mUSD for demonstration.
+          <RecentSettlement transactions={transactions} />
         </div>
       </div>
     </div>
