@@ -1,9 +1,9 @@
 "use client";
 
 import {useAccount} from "wagmi";
-import {useVaultState, useActionHistory} from "@/lib/hooks";
+import {useVaultState, useApiTransactions, txToAction} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
-import {explorerTx, explorerAddress} from "@/lib/chain";
+import {explorerTx} from "@/lib/chain";
 import {TxChip} from "@/components/ui/Chip";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
@@ -41,15 +41,15 @@ function PolicyHealthCard({state}: {state: ReturnType<typeof useVaultState>["dat
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Per-transaction limit</span>
-          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(policy.maxPerTx)} mUSD</span>
+          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(policy.maxPerTx)} USDC</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Daily spending limit</span>
-          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(policy.dailyCap)} mUSD</span>
+          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(policy.dailyCap)} USDC</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Remaining daily allowance</span>
-          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(remainingDailyCap)} mUSD</span>
+          <span className="text-[13px] font-medium text-text-primary tabular-nums">{formatUsdc(remainingDailyCap)} USDC</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Policy expiry</span>
@@ -81,7 +81,7 @@ function AgentHealthCard({state, loading, agent}: {state: ReturnType<typeof useV
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Agent wallet</span>
-          <span className="text-[12px] font-medium text-text-primary font-mono">{truncateAddress(agent)}</span>
+          <span className="text-[12px] font-medium text-text-primary font-mono">{truncateAddress(agent as `0x${string}`)}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Authorization</span>
@@ -100,36 +100,22 @@ function AgentHealthCard({state, loading, agent}: {state: ReturnType<typeof useV
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Vault balance</span>
           <span className="text-[13px] font-medium text-text-primary tabular-nums">
-            {state ? <>{formatUsdc(state.vaultBalance)} <span className="text-text-muted">mUSD</span></> : "-"}
+            {state ? <>{formatUsdc(state.vaultBalance)} <span className="text-text-muted">USDC</span></> : "-"}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Current allowance</span>
           <span className="text-[13px] font-medium text-text-primary tabular-nums">
-            {state ? <>{formatUsdc(state.remainingDailyCap)} <span className="text-text-muted">mUSD</span></> : "-"}
+            {state ? <>{formatUsdc(state.remainingDailyCap)} <span className="text-text-muted">USDC</span></> : "-"}
           </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[12px] text-text-muted">Gas status</span>
-          {loading ? (
-            <span className="text-[12px] text-text-muted">-</span>
-          ) : state && false ? (
-            <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-approved">
-              <span className="h-1.5 w-1.5 rounded-full bg-state-approved" /> Funded
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-pending">
-              <span className="h-1.5 w-1.5 rounded-full bg-state-pending" /> Unfunded
-            </span>
-          )}
         </div>
       </div>
     </div>
   );
 }
 
-function RecentActivity({actions, loading}: {actions: ReturnType<typeof useActionHistory>["actions"]; loading: boolean}) {
-  const recent = actions.slice(0, 5);
+function RecentActivity({transactions, loading}: {transactions: ReturnType<typeof useApiTransactions>["transactions"]; loading: boolean}) {
+  const recent = transactions.slice(0, 5);
 
   if (loading && recent.length === 0) {
     return (
@@ -151,39 +137,43 @@ function RecentActivity({actions, loading}: {actions: ReturnType<typeof useActio
 
   return (
     <div className="divide-y divide-border">
-      {recent.map((action) => (
-        <div key={`${action.txHash}:${action.logIndex}`} className="flex items-center gap-4 py-3">
-          <StateBadge kind={action.kind} />
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-medium text-text-primary">
-              {formatUsdc(action.amount)} mUSD
-              <span className="text-text-muted ml-1.5">to {truncateAddress(action.target)}</span>
+      {recent.map((tx) => {
+        const action = txToAction(tx);
+        return (
+          <div key={tx.id} className="flex items-center gap-4 py-3">
+            <StateBadge kind={action.kind} />
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-medium text-text-primary">
+                {formatUsdc(action.amount)} USDC
+                <span className="text-text-muted ml-1.5">to {truncateAddress(action.target)}</span>
+              </div>
+              <div className="text-[12px] text-text-muted mt-0.5">
+                {action.kind === "blocked" ? action.reason ?? "Policy violation" : "Approved"}
+              </div>
             </div>
-            <div className="text-[12px] text-text-muted mt-0.5">
-              {action.kind === "blocked" ? action.reason ?? "Policy violation" : "Approved"}
-            </div>
+            {tx.tx_hash && (
+              <TxChip href={explorerTx(tx.tx_hash as `0x${string}`)} label={truncateHash(tx.tx_hash as `0x${string}`)} />
+            )}
           </div>
-          <TxChip href={explorerTx(action.txHash)} label={truncateHash(action.txHash)} />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 export default function DashboardPage() {
-  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
-  const {data: state, loading, error, refetch} = useVaultState(agent);
-  const history = useActionHistory(agent);
+  const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
+  const {data: state, loading, refetch} = useVaultState(agent);
+  const {transactions, loading: txLoading} = useApiTransactions();
   const {address, isConnected} = useAccount();
 
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
-  const approvedCount = history.actions.filter((a) => a.kind === "approved").length;
-  const blockedCount = history.actions.filter((a) => a.kind === "blocked").length;
+  const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;
+  const blockedCount = transactions.filter((t) => t.execution_status === "BLOCKED").length;
   const spentToday = state?.policy.spentToday ?? 0n;
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-[24px] font-semibold text-text-primary tracking-tight">SpendArc</h1>
         <p className="text-[13px] text-text-muted mt-1">
@@ -203,12 +193,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <KPICard label="Total USDC Controlled" value={state ? `$${formatUsdc(state.vaultBalance)}` : "$0"} sub="mUSD in vault" accent />
-        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "$0"} sub="mUSD" />
-        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "$0"} sub="mUSD" />
-        <KPICard label="Approved" value={approvedCount} sub="transactions" />
+        <KPICard label="Total USDC Controlled" value={state ? `$${formatUsdc(state.vaultBalance)}` : "$0"} sub="USDC in vault" accent />
+        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "$0"} sub="USDC" />
+        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "$0"} sub="USDC" />
+        <KPICard label="Approved" value={confirmedCount} sub="transactions" />
         <KPICard label="Blocked" value={blockedCount} sub="transactions" />
         <KPICard
           label="Agent Status"
@@ -217,21 +206,18 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Spending Analytics */}
           <div className="kpi-card p-5">
             <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-4">Spending Analytics</div>
-            {history.actions.length === 0 ? (
+            {transactions.length === 0 ? (
               <EmptyState title="No spending data yet" description="Once the agent makes spending requests, analytics will appear here." />
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-state-approved" />
-                    <span className="text-[12px] text-text-muted">{approvedCount} approved</span>
+                    <span className="text-[12px] text-text-muted">{confirmedCount} approved</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-state-blocked" />
@@ -239,12 +225,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="h-32 flex items-end gap-1">
-                  {/* Simple bar visualization */}
-                  {history.actions.slice(0, 20).reverse().map((action, i) => (
+                  {transactions.slice(0, 20).reverse().map((tx, i) => (
                     <div
-                      key={i}
-                      className={`flex-1 rounded-t ${action.kind === "approved" ? "bg-state-approved/30" : "bg-state-blocked/30"}`}
-                      style={{height: `${Math.max(10, Number(action.amount) / 100000)}%`}}
+                      key={tx.id}
+                      className={`flex-1 rounded-t ${tx.execution_status === "CONFIRMED" ? "bg-state-approved/30" : "bg-state-blocked/30"}`}
+                      style={{height: `${Math.max(10, Number(tx.amount) / 100000)}%`}}
                     />
                   ))}
                 </div>
@@ -253,18 +238,16 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Recent Activity */}
           <div className="kpi-card">
             <div className="px-5 pt-5 pb-3">
               <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Recent Activity</div>
             </div>
             <div className="px-5 pb-5">
-              <RecentActivity actions={history.actions} loading={history.loading} />
+              <RecentActivity transactions={transactions} loading={txLoading} />
             </div>
           </div>
         </div>
 
-        {/* Right column */}
         <div className="space-y-6">
           <PolicyHealthCard state={state} />
           <AgentHealthCard state={state} loading={loading} agent={agent} />

@@ -1,10 +1,10 @@
 "use client";
 
-import {useState} from "react";
-import {parseUnits, type Address} from "viem";
+import {useEffect, useState} from "react";
+import type {Address} from "viem";
 import {useAccount} from "wagmi";
-import {CONTRACTS, USDC_DECIMALS, vaultAbi} from "@/lib/contracts";
-import {useVaultState} from "@/lib/hooks";
+import {CONTRACTS, vaultAbi} from "@/lib/contracts";
+import {useVaultState, useApiAgents} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, formatExpiry, truncateAddress} from "@/lib/format";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
 import {Field, TextInput, Toggle} from "@/components/ui/Input";
@@ -24,7 +24,7 @@ function PolicyStatus({active, expiry}: {active: boolean; expiry: bigint}) {
   );
 }
 
-function PolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable<ReturnType<typeof useVaultState>["data"]>; refetch: () => void}) {
+function OnChainPolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable<ReturnType<typeof useVaultState>["data"]>; refetch: () => void}) {
   const [editing, setEditing] = useState(false);
   const [maxPerTx, setMaxPerTx] = useState(formatUsdc(state.policy.maxPerTx));
   const [dailyCap, setDailyCap] = useState(formatUsdc(state.policy.dailyCap));
@@ -38,17 +38,15 @@ function PolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable
         onClick={() => setEditing(true)}
         className="rounded-lg border border-border px-4 py-2 text-[12px] font-medium text-text-secondary hover:bg-surface-hover transition-colors"
       >
-        Edit Policy
+        Edit On-Chain Policy
       </button>
     );
   }
 
   const submit = () => {
-    let mpt: bigint, dc: bigint;
-    try {
-      mpt = parseUnits(maxPerTx || "0", USDC_DECIMALS);
-      dc = parseUnits(dailyCap || "0", USDC_DECIMALS);
-    } catch { return; }
+    const mpt = BigInt(Math.round(parseFloat(maxPerTx || "0") * 1_000_000));
+    const dc = BigInt(Math.round(parseFloat(dailyCap || "0") * 1_000_000));
+    if (mpt <= 0 || dc <= 0) return;
     const d = Number(days);
     const expiry = !d || d <= 0 ? 0n : BigInt(Math.floor(Date.now() / 1000) + d * 86400);
     write.run({
@@ -61,11 +59,12 @@ function PolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable
 
   return (
     <div className="space-y-4 p-4 rounded-lg border border-accent/20 bg-accent-light/30">
+      <div className="text-[12px] font-medium text-text-primary mb-2">On-Chain Policy</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Per-tx cap (mUSD)">
+        <Field label="Per-tx cap (USDC)">
           <TextInput inputMode="decimal" value={maxPerTx} onChange={(e) => setMaxPerTx(e.target.value)} />
         </Field>
-        <Field label="Daily cap (mUSD)">
+        <Field label="Daily cap (USDC)">
           <TextInput inputMode="decimal" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} />
         </Field>
         <Field label="Expiry (days from now)" hint="0 = never expires">
@@ -78,7 +77,7 @@ function PolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable
       {write.error && <div className="text-[12px] text-state-blocked">{write.error}</div>}
       <div className="flex items-center gap-3">
         <button onClick={submit} disabled={write.pending} className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-50">
-          {write.pending ? "Saving..." : "Save Policy"}
+          {write.pending ? "Saving..." : "Save On-Chain Policy"}
         </button>
         <button onClick={() => setEditing(false)} disabled={write.pending} className="rounded-lg border border-border px-4 py-2 text-[12px] font-medium text-text-secondary hover:bg-surface-hover disabled:opacity-50">
           Cancel
@@ -131,8 +130,10 @@ function EmergencyRevoke({agent, isOwner, refetch}: {agent: Address; isOwner: bo
 }
 
 export default function PoliciesPage() {
-  const agent = "0xCc19a6CD4c18Ea52a0E49DAb62c5C0F22800fa2B" as const;
-  const {data: state, loading, error, refetch} = useVaultState(agent);
+  const {agents} = useApiAgents();
+  const agentAddress = (agents[0]?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
+  const agentId = agents[0]?.id ?? "";
+  const {data: state, loading, error, refetch} = useVaultState(agentAddress);
   const {address, isConnected} = useAccount();
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
 
@@ -144,12 +145,11 @@ export default function PoliciesPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Policy Overview */}
         <div className="kpi-card p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <div className="text-[13px] font-semibold text-text-primary">Spending Policy</div>
-              <div className="text-[12px] text-text-muted mt-0.5">On-chain enforcement rules for agent spending</div>
+              <div className="text-[13px] font-semibold text-text-primary">On-Chain Spending Policy</div>
+              <div className="text-[12px] text-text-muted mt-0.5">Enforced by SpendArcVault on Arc</div>
             </div>
             {state && <PolicyStatus active={state.policy.active} expiry={state.policy.expiry} />}
           </div>
@@ -161,59 +161,154 @@ export default function PoliciesPage() {
               ))}
             </div>
           ) : error && !state ? (
-            <div className="text-[12px] text-state-blocked">Failed to load policy. Please try again.</div>
+            <div className="text-[12px] text-state-blocked">Failed to load policy.</div>
           ) : state ? (
             <div className="space-y-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Per-Tx Limit</div>
-                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.maxPerTx)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
+                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.maxPerTx)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
                 </div>
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Daily Limit</div>
-                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.dailyCap)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
+                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.dailyCap)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
                 </div>
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Spent Today</div>
-                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.spentToday)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
+                  <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.spentToday)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
                 </div>
                 <div className="p-4 rounded-lg bg-surface-muted">
                   <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Remaining</div>
-                  <div className="text-[18px] font-semibold text-state-approved tabular-nums">{formatUsdc(state.remainingDailyCap)} <span className="text-[12px] text-text-muted font-normal">mUSD</span></div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg border border-border">
-                  <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">Allowlisted Recipients</div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 text-[12px] text-accent font-medium">
-                      {truncateAddress("0x7138931Fc8b4924090b08Ed00D74Ce750c52f937" as const)}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4 rounded-lg border border-border">
-                  <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">Allowlisted Tokens</div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 text-[12px] text-accent font-medium">
-                      mUSD
-                    </span>
-                  </div>
+                  <div className="text-[18px] font-semibold text-state-approved tabular-nums">{formatUsdc(state.remainingDailyCap)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
                 </div>
               </div>
 
               <div className="p-4 rounded-lg border border-border">
                 <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">Assigned Agent</div>
-                <div className="text-[13px] font-mono text-text-primary">{truncateAddress(agent)}</div>
+                <div className="text-[13px] font-mono text-text-primary">{truncateAddress(agentAddress)}</div>
               </div>
 
-              {isOwner && <PolicyForm agent={agent} state={state} refetch={refetch} />}
+              {isOwner && <OnChainPolicyForm agent={agentAddress} state={state} refetch={refetch} />}
             </div>
           ) : null}
         </div>
 
-        {/* Emergency Revoke */}
-        {state && <EmergencyRevoke agent={agent} isOwner={isOwner} refetch={refetch} />}
+        <div className="kpi-card p-6">
+          <div className="text-[13px] font-semibold text-text-primary mb-4">Server-Side Policy</div>
+          <div className="text-[12px] text-text-muted mb-4">
+            Configured via the API and evaluated before on-chain enforcement.
+          </div>
+          {agentId ? (
+            <ApiPolicySection agentId={agentId} />
+          ) : (
+            <div className="text-[12px] text-text-muted">Create an agent first to configure server-side policies.</div>
+          )}
+        </div>
+
+        {state && <EmergencyRevoke agent={agentAddress} isOwner={isOwner} refetch={refetch} />}
+      </div>
+    </div>
+  );
+}
+
+function ApiPolicySection({agentId}: {agentId: string}) {
+  const [editing, setEditing] = useState(false);
+  const [maxPerTx, setMaxPerTx] = useState("5");
+  const [dailyCap, setDailyCap] = useState("20");
+  const [active, setActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [policy, setPolicy] = useState<{max_per_tx: number; daily_cap: number; active: number} | null>(null);
+
+  const loadPolicy = async () => {
+    try {
+      const res = await fetch(`/api/policies/${agentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPolicy(data.policy);
+        setMaxPerTx((data.policy.max_per_tx / 1_000_000).toString());
+        setDailyCap((data.policy.daily_cap / 1_000_000).toString());
+        setActive(!!data.policy.active);
+      }
+    } catch {}
+  };
+
+  useEffect(() => { loadPolicy(); }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/policies/${agentId}`, {
+        method: "PUT",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify({maxPerTx, dailyCap, active}),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Save failed");
+      } else {
+        const data = await res.json();
+        setPolicy(data.policy);
+        setEditing(false);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <div>
+        {policy && (
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="p-3 rounded-lg bg-surface-muted">
+              <div className="text-[11px] text-text-muted">Per-Tx Limit</div>
+              <div className="text-[16px] font-semibold tabular-nums">{maxPerTx} USDC</div>
+            </div>
+            <div className="p-3 rounded-lg bg-surface-muted">
+              <div className="text-[11px] text-text-muted">Daily Cap</div>
+              <div className="text-[16px] font-semibold tabular-nums">{dailyCap} USDC</div>
+            </div>
+            <div className="p-3 rounded-lg bg-surface-muted">
+              <div className="text-[11px] text-text-muted">Status</div>
+              <div className="text-[16px] font-semibold tabular-nums">{active ? "Active" : "Inactive"}</div>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={() => setEditing(true)}
+          className="rounded-lg border border-border px-4 py-2 text-[12px] font-medium text-text-secondary hover:bg-surface-hover"
+        >
+          Edit Server-Side Policy
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 p-4 rounded-lg border border-accent/20 bg-accent-light/30">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field label="Per-tx cap (USDC)">
+          <TextInput inputMode="decimal" value={maxPerTx} onChange={(e) => setMaxPerTx(e.target.value)} />
+        </Field>
+        <Field label="Daily cap (USDC)">
+          <TextInput inputMode="decimal" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} />
+        </Field>
+        <Field label="Active">
+          <Toggle checked={active} onChange={setActive} label={active ? "active" : "inactive"} />
+        </Field>
+      </div>
+      {error && <div className="text-[12px] text-state-blocked">{error}</div>}
+      <div className="flex items-center gap-3">
+        <button onClick={save} disabled={saving} className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-50">
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button onClick={() => setEditing(false)} disabled={saving} className="rounded-lg border border-border px-4 py-2 text-[12px] font-medium text-text-secondary hover:bg-surface-hover disabled:opacity-50">
+          Cancel
+        </button>
       </div>
     </div>
   );
