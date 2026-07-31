@@ -67,14 +67,23 @@ export interface ApiAuditLog {
 /** Batched vault-state read. Refetches on window focus + manual + post-action only (no interval). */
 export function useVaultState(agent: Address) {
   const [state, setState] = useState<AsyncState<VaultState>>({data: undefined, loading: true, error: undefined});
+  const inflight = useRef<Promise<void> | null>(null);
 
   const refetch = useCallback(async () => {
+    if (inflight.current) return inflight.current;
     setState((s) => ({...s, loading: true}));
+    inflight.current = (async () => {
+      try {
+        const data = await readVaultState(agent);
+        setState({data, loading: false, error: undefined});
+      } catch (e) {
+        setState((s) => ({data: s.data, loading: false, error: e as Error}));
+      }
+    })();
     try {
-      const data = await readVaultState(agent);
-      setState({data, loading: false, error: undefined});
-    } catch (e) {
-      setState((s) => ({data: s.data, loading: false, error: e as Error}));
+      await inflight.current;
+    } finally {
+      inflight.current = null;
     }
   }, [agent]);
 
@@ -182,27 +191,4 @@ export function txToAction(tx: ApiTransaction, defaultAgentAddress = "0x0" as Ad
     blockNumber: 0n,
     logIndex: 0,
   };
-}
-
-/** Incremental action history from chain events (kept for live feed, but most pages use API now). */
-export function useActionHistory(agent: Address) {
-  const [actions, setActions] = useState<AgentAction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | undefined>(undefined);
-
-  const refetch = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await readVaultState(agent);
-      setError(undefined);
-    } catch (e) {
-      setError(e as Error);
-    } finally {
-      setLoading(false);
-    }
-  }, [agent]);
-
-  useEffect(() => { void refetch(); }, [refetch]);
-
-  return {actions, loading, error, refetch};
 }
