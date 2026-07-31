@@ -1,16 +1,17 @@
 "use client";
 
-import {useAccount} from "wagmi";
-import {usePrivy} from "@privy-io/react-auth";
+import {usePrivy, useWallets} from "@privy-io/react-auth";
 import {Chip} from "@/components/ui/Chip";
 import {Dot} from "@/components/ui/Icons";
 import {truncateAddress} from "@/lib/format";
 
 export function OwnerConnectButton() {
   const {ready, login, logout} = usePrivy();
-  const {address, isConnected} = useAccount();
+  const {wallets} = useWallets();
 
-  if (isConnected && address) {
+  const address = wallets[0]?.address;
+
+  if (address) {
     return (
       <button
         onClick={() => logout()}

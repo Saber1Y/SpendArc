@@ -1,9 +1,9 @@
 "use client";
 
 import {useState, useEffect} from "react";
-import {useAccount} from "wagmi";
 import {useVaultState} from "@/lib/hooks";
 import {isSameAddress, truncateAddress} from "@/lib/format";
+import {useActiveAddress} from "@/lib/usePrivyWallet";
 import {CONTRACTS} from "@/lib/contracts";
 import {explorerAddress} from "@/lib/chain";
 
@@ -45,7 +45,7 @@ function CopyButton({value}: {value: string}) {
 export default function SettingsPage() {
   const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
   const {data: state, loading} = useVaultState(agent);
-  const {address, isConnected} = useAccount();
+  const {address, isConnected} = useActiveAddress();
   const [health, setHealth] = useState<Health>([]);
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
 

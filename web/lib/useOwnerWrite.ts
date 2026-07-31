@@ -1,9 +1,9 @@
 "use client";
 
 import {useState} from "react";
-import {useWriteContract} from "wagmi";
 import type {Abi} from "viem";
 import {arcChain} from "./arc";
+import {usePrivyWalletClient} from "./usePrivyWallet";
 import {waitForReceiptRaw} from "./txwait";
 
 export type WriteArgs = {
@@ -20,13 +20,19 @@ export type WriteStatus = {pending: boolean; error?: string; okKey?: number};
  * (caller's refetch) to confirm the effect. Never uses a formatted waitForTransactionReceipt.
  */
 export function useOwnerWrite(refetch: () => void) {
-  const {writeContractAsync} = useWriteContract();
+  const {getClient} = usePrivyWalletClient();
   const [status, setStatus] = useState<WriteStatus>({pending: false});
 
   const run = async (args: WriteArgs) => {
     setStatus({pending: true});
     try {
-      const hash = await writeContractAsync({...args, chainId: arcChain.id});
+      const client = await getClient();
+      if (!client) throw new Error("No wallet connected");
+      const hash = await client.writeContract({
+        ...args,
+        chain: arcChain,
+        account: client.account!,
+      });
       const result = await waitForReceiptRaw(hash);
       if (result === "reverted") {
         setStatus({pending: false, error: "Transaction reverted on-chain"});

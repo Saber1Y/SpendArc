@@ -2,10 +2,10 @@
 
 import {useEffect, useState} from "react";
 import {isAddress, type Address} from "viem";
-import {useAccount} from "wagmi";
 import {CONTRACTS, vaultAbi} from "@/lib/contracts";
 import {useVaultState, useApiAgents} from "@/lib/hooks";
 import {isSameAddress, truncateAddress} from "@/lib/format";
+import {useActiveAddress} from "@/lib/usePrivyWallet";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
 import {Field, TextInput} from "@/components/ui/Input";
 
@@ -309,7 +309,7 @@ export default function AllowlistPage() {
   const agentAddress = (agents[0]?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
   const agentId = agents[0]?.id ?? "";
   const {data: state, refetch} = useVaultState(agentAddress);
-  const {address, isConnected} = useAccount();
+  const {address, isConnected} = useActiveAddress();
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
 
   return (

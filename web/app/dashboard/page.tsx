@@ -1,13 +1,13 @@
 "use client";
 
 import {useState} from "react";
-import {useAccount} from "wagmi";
-import {writeContract, waitForTransactionReceipt} from "wagmi/actions";
 import {useVaultState, useApiTransactions, txToAction} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {CONTRACTS, vaultAbi, usdcAbi} from "@/lib/contracts";
-import {wagmiConfig} from "@/lib/wagmi";
+import {arcChain} from "@/lib/arc";
+import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
+import {waitForReceiptRaw} from "@/lib/txwait";
 import {TxChip} from "@/components/ui/Chip";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
@@ -172,7 +172,8 @@ function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState
   const [recipient, setRecipient] = useState("");
   const [status, setStatus] = useState("");
   const [sending, setSending] = useState(false);
-  const {address, isConnected} = useAccount();
+  const {address, isConnected} = useActiveAddress();
+  const {getClient} = usePrivyWalletClient();
 
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
 
@@ -183,26 +184,32 @@ function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState
     setSending(true);
     setStatus("");
     try {
+      const client = await getClient();
+      if (!client) throw new Error("No wallet connected");
       const amount = parseUnits(depositAmount, 6);
       // Approve USDC transfer
-      const approveHash = await writeContract(wagmiConfig, {
+      const approveHash = await client.writeContract({
         abi: usdcAbi,
         address: CONTRACTS.usdc,
         functionName: "approve",
         args: [CONTRACTS.vault, amount],
+        chain: arcChain,
+        account: address,
       });
       setStatus("Approving USDC...");
-      await waitForTransactionReceipt(wagmiConfig, {hash: approveHash});
+      await waitForReceiptRaw(approveHash);
 
       // Transfer USDC to vault
-      const txHash = await writeContract(wagmiConfig, {
+      const txHash = await client.writeContract({
         abi: usdcAbi,
         address: CONTRACTS.usdc,
         functionName: "transfer",
         args: [CONTRACTS.vault, amount],
+        chain: arcChain,
+        account: address,
       });
       setStatus(`Depositing... ${truncateHash(txHash)}`);
-      await waitForTransactionReceipt(wagmiConfig, {hash: txHash});
+      await waitForReceiptRaw(txHash);
 
       setStatus("Deposit confirmed");
       setDepositAmount("");
@@ -215,19 +222,23 @@ function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState
   };
 
   const doWithdraw = async () => {
-    if (!withdrawAmount || !recipient) return;
+    if (!withdrawAmount || !recipient || !address) return;
     setSending(true);
     setStatus("");
     try {
+      const client = await getClient();
+      if (!client) throw new Error("No wallet connected");
       const amount = parseUnits(withdrawAmount, 6);
-      const txHash = await writeContract(wagmiConfig, {
+      const txHash = await client.writeContract({
         abi: vaultAbi,
         address: CONTRACTS.vault,
         functionName: "withdrawTokens",
         args: [CONTRACTS.usdc, recipient as `0x${string}`, amount],
+        chain: arcChain,
+        account: address,
       });
       setStatus(`Withdrawing... ${truncateHash(txHash)}`);
-      await waitForTransactionReceipt(wagmiConfig, {hash: txHash});
+      await waitForReceiptRaw(txHash);
       setStatus("Withdrawal confirmed");
       setWithdrawAmount("");
       setTimeout(refetch, 1000);
@@ -310,7 +321,7 @@ export default function DashboardPage() {
   const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
   const {data: state, loading, refetch} = useVaultState(agent);
   const {transactions, loading: txLoading} = useApiTransactions();
-  const {address, isConnected} = useAccount();
+  const {address, isConnected} = useActiveAddress();
 
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
   const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;

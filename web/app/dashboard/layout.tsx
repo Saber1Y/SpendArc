@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useActiveAddress } from "@/lib/usePrivyWallet";
 import { OwnerConnectButton } from "@/components/dashboard/OwnerConnectButton";
 
 const NAV_ITEMS = [
@@ -155,7 +155,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useActiveAddress();
 
   return (
     <div className="flex min-h-screen bg-surface-muted">

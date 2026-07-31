@@ -1,7 +1,6 @@
 "use client";
 
 import {useState} from "react";
-import {useAccount} from "wagmi";
 import {useApiAgents, useVaultState} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, truncateAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
