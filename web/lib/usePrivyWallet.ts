@@ -1,37 +1,45 @@
 "use client";
 
 import {useCallback} from "react";
-import {useWallets} from "@privy-io/react-auth";
+import {usePrivy, useWallets} from "@privy-io/react-auth";
 import {createWalletClient, custom, type Address, type WalletClient} from "viem";
 import {arcChain} from "./arc";
 import {publicClient} from "./chain";
 
-/** Active wallet address from Privy - the single source of truth for wallet state. */
+/**
+ * Active wallet address from Privy - the single source of truth for wallet state.
+ * Only reports a connected wallet once the Privy session is both resolved and authenticated,
+ * so a restored-but-unauthenticated session can never masquerade as a connection.
+ */
 export function useActiveAddress() {
-  const {wallets, ready} = useWallets();
+  const {ready, authenticated} = usePrivy();
+  const {wallets} = useWallets();
   const wallet = wallets[0];
+  const connected = ready && authenticated && !!wallet;
   return {
-    address: wallet?.address as Address | undefined,
-    isConnected: ready && !!wallet,
+    address: connected ? (wallet.address as Address) : undefined,
+    isConnected: connected,
   };
 }
 
 /** Build a viem wallet client from the connected Privy wallet for owner writes. */
 export function usePrivyWalletClient() {
+  const {ready, authenticated} = usePrivy();
   const {wallets} = useWallets();
   const wallet = wallets[0];
+  const connected = ready && authenticated && !!wallet;
 
   const getClient = useCallback(async (): Promise<WalletClient | null> => {
-    if (!wallet) return null;
+    if (!connected || !wallet) return null;
     const provider = await wallet.getEthereumProvider();
     return createWalletClient({
       account: wallet.address as Address,
       chain: arcChain,
       transport: custom(provider),
     });
-  }, [wallet]);
+  }, [connected, wallet]);
 
-  return {getClient, address: wallet?.address as Address | undefined, hasWallet: !!wallet};
+  return {getClient, address: wallet?.address as Address | undefined, hasWallet: connected};
 }
 
 /** Wait for an on-chain receipt via the Arc public client. */

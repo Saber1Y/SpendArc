@@ -6,21 +6,26 @@ import {Dot} from "@/components/ui/Icons";
 import {truncateAddress} from "@/lib/format";
 
 export function OwnerConnectButton() {
-  const {ready, login, logout} = usePrivy();
+  const {ready, authenticated, login, logout} = usePrivy();
   const {wallets} = useWallets();
 
-  const address = wallets[0]?.address;
+  const address = authenticated ? wallets[0]?.address : undefined;
 
   if (address) {
     return (
-      <button
-        onClick={() => logout()}
-        className="inline-flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[13px] text-white/70 transition hover:bg-white/10 hover:text-white/90"
-        title="Disconnect"
-      >
-        <Dot width={8} height={8} className="text-state-approved shrink-0" />
-        <span className="truncate">{truncateAddress(address)}</span>
-      </button>
+      <div className="w-full">
+        <button
+          onClick={() => logout()}
+          className="inline-flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[13px] text-white/70 transition hover:bg-white/10 hover:text-white/90"
+          title="Disconnect this wallet"
+        >
+          <Dot width={8} height={8} className="text-state-approved shrink-0" />
+          <span className="truncate">{truncateAddress(address)}</span>
+        </button>
+        <div className="mt-1.5 text-[10px] text-white/30">
+          {ready ? "Disconnect" : "..."}
+        </div>
+      </div>
     );
   }
 

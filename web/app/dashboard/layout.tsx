@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
 import { useActiveAddress } from "@/lib/usePrivyWallet";
+import { truncateAddress } from "@/lib/format";
 import { OwnerConnectButton } from "@/components/dashboard/OwnerConnectButton";
+import { LoginGate } from "@/components/dashboard/LoginGate";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: "grid" },
@@ -155,7 +158,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { ready, authenticated } = usePrivy();
   const { address, isConnected } = useActiveAddress();
+
+  if (ready && !authenticated) {
+    return <LoginGate />;
+  }
 
   return (
     <div className="flex min-h-screen bg-surface-muted">
@@ -216,22 +224,10 @@ export default function DashboardLayout({
 
         {/* Wallet & status */}
         <div className="border-t border-white/8 p-4">
-          <div className="mb-3">
-            <OwnerConnectButton />
-          </div>
+          <OwnerConnectButton />
           {isConnected && address && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-white/30">Agent</span>
-                <span className="flex items-center gap-1.5 text-[11px] text-white/50">
-                  <span className="h-1.5 w-1.5 rounded-full bg-state-approved" />
-                  Active
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-white/30">USDC</span>
-                <span className="text-[11px] text-white/50">-</span>
-              </div>
+            <div className="mt-3 text-[11px] text-white/30 break-all">
+              {truncateAddress(address)}
             </div>
           )}
         </div>
