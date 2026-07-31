@@ -1,26 +1,11 @@
-import {createConfig, http} from "wagmi";
-import {injected} from "wagmi/connectors";
+import {http} from "wagmi";
+import {createConfig} from "@privy-io/wagmi";
 import {arcChain} from "./arc";
 
-/** Light wallet-connect: MetaMask only, no heavy kit. Owner writes. */
+/** wagmi config for Privy-synced wallets. @privy-io/wagmi registers the Privy
+ *  connectors (embedded + external wallets) automatically; no manual connectors. */
 export const wagmiConfig = createConfig({
   chains: [arcChain],
-  connectors: [
-    injected({
-      target: {
-        id: "metaMask",
-        name: "MetaMask",
-        // Trust Wallet impersonates MetaMask by setting isMetaMask=true, so pick the
-        // provider that isMetaMask AND isTrust is falsy from the EIP-1193 provider list.
-        provider(window) {
-          if (!window) return undefined;
-          const ethereum = window.ethereum;
-          const candidates = ethereum?.providers?.length ? ethereum.providers : ethereum ? [ethereum] : [];
-          return candidates.find((p) => p.isMetaMask && !p.isTrust);
-        },
-      },
-    }),
-  ],
   transports: {[arcChain.id]: http()},
   ssr: true,
 });
