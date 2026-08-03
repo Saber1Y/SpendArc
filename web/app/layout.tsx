@@ -1,9 +1,9 @@
 import type {Metadata} from "next";
-import {Inter} from "next/font/google";
+import {Sora} from "next/font/google";
 import "./globals.css";
 import {Providers} from "@/components/Providers";
 
-const inter = Inter({subsets: ["latin"], variable: "--font-inter", display: "swap"});
+const sora = Sora({subsets: ["latin"], variable: "--font-sora", display: "swap"});
 
 const title = "SpendArc - Agent Spending Control Plane";
 const description =
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={sora.variable}>
       <body>
         <Providers>{children}</Providers>
       </body>
