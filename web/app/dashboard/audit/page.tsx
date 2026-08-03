@@ -5,6 +5,25 @@ import {useApiAuditLogs, type ApiAuditLog} from "@/lib/hooks";
 
 type EventFilter = "all" | "approved" | "blocked";
 
+/** Management/config events (agent/policy/allowlist/run lifecycle), i.e. everything that is not a transaction row. */
+function isManagementEvent(log: ApiAuditLog): boolean {
+  return !log.action.startsWith("transaction");
+}
+
+/** Transaction events whose recorded decision was BLOCKED or FAILED. */
+function isBlockedEvent(log: ApiAuditLog): boolean {
+  if (log.action !== "transaction_created" && log.action !== "transaction_updated") return false;
+  try {
+    const details = JSON.parse(log.details) as Record<string, unknown>;
+    if (details.policy_decision === "BLOCKED") return true;
+    if (details.decision_code && details.decision_code !== "APPROVED") return true;
+    if (details.execution_status === "BLOCKED" || details.execution_status === "FAILED") return true;
+  } catch {
+    // details is not JSON (unexpected shape) - fall through to default false
+  }
+  return false;
+}
+
 function EventType({action}: {action: string}) {
   if (action === "transaction_created" || action === "transaction_updated") {
     const isApproved = action === "transaction_created";
@@ -61,12 +80,12 @@ export default function AuditPage() {
   const {logs, loading, error, refetch} = useApiAuditLogs(100);
   const [filter, setFilter] = useState<EventFilter>("all");
 
-  const filtered = filter === "all" ? logs : logs.filter((l) => l.action.includes(filter === "approved" ? "created" : "blocked"));
+  const filtered = filter === "all" ? logs : filter === "approved" ? logs.filter(isManagementEvent) : logs.filter(isBlockedEvent);
 
   const filters: {value: EventFilter; label: string; count: number}[] = [
     {value: "all", label: "All Events", count: logs.length},
-    {value: "approved", label: "Created", count: logs.filter((l) => l.action.includes("created")).length},
-    {value: "blocked", label: "Blocked", count: logs.filter((l) => l.action.includes("blocked")).length},
+    {value: "approved", label: "Created", count: logs.filter(isManagementEvent).length},
+    {value: "blocked", label: "Blocked", count: logs.filter(isBlockedEvent).length},
   ];
 
   return (
