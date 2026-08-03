@@ -5,9 +5,9 @@ import {useApiTransactions, txToAction} from "@/lib/hooks";
 import {formatUsdc} from "@/lib/format";
 import {CONTRACTS} from "@/lib/contracts";
 
-function StatCard({label, value, sub, accent}: {label: string; value: string | number; sub?: string; accent?: boolean}) {
+function StatCard({label, value, sub, accent, delay = 0}: {label: string; value: string | number; sub?: string; accent?: boolean; delay?: number}) {
   return (
-    <div className="kpi-card p-5">
+    <div className="kpi-card p-5" data-aos="fade-up" data-aos-delay={delay}>
       <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-2">{label}</div>
       <div className={`text-[20px] font-semibold tracking-tight ${accent ? "text-accent" : "text-text-primary"}`}>
         {value}
@@ -56,12 +56,12 @@ export default function PaymentsPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Payments / Settlement</h1>
         <p className="text-[13px] text-text-muted mt-1">Payment infrastructure and settlement status</p>
       </div>
 
-      <div className="kpi-card p-5 mb-6">
+      <div className="kpi-card p-5 mb-6" data-aos="fade-up">
         <div className="flex items-center gap-3">
           <span className="h-2 w-2 rounded-full bg-state-approved" />
           <div>
@@ -73,12 +73,12 @@ export default function PaymentsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total Settled" value={confirmedCount} sub="payments" accent />
-        <StatCard label="Pending" value={transactions.length - confirmedCount - blockedCount - failedCount} sub="payments" />
-        <StatCard label="Failed" value={failedCount + blockedCount} sub="blocked" />
-        <StatCard label="Vault" value="Arc Testnet" sub={`Vault: ${vault.slice(0, 10)}...`} />
+        <StatCard label="Pending" value={transactions.length - confirmedCount - blockedCount - failedCount} sub="payments" delay={60} />
+        <StatCard label="Failed" value={failedCount + blockedCount} sub="blocked" delay={120} />
+        <StatCard label="Vault" value="Arc Testnet" sub={`Vault: ${vault.slice(0, 10)}...`} delay={180} />
       </div>
 
-      <div className="kpi-card">
+      <div className="kpi-card" data-aos="fade-up" data-aos-delay="120">
         <div className="px-5 pt-5 pb-3">
           <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Recent Settlements</div>
         </div>
