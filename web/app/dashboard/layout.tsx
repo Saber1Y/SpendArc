@@ -194,7 +194,7 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition motion-safe:active:scale-[0.98] ${
                     active
                       ? "bg-accent/10 text-accent"
                       : "text-white/50 hover:bg-white/5 hover:text-white/80"
@@ -214,7 +214,7 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-white/40 hover:bg-white/5 hover:text-white/60 transition-colors"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-white/40 hover:bg-white/5 hover:text-white/60 transition motion-safe:active:scale-[0.98]"
               >
                 <NavIcon icon={item.icon} />
                 {item.label}
