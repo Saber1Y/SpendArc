@@ -2,6 +2,7 @@ import type {Metadata} from "next";
 import {Sora} from "next/font/google";
 import "./globals.css";
 import {Providers} from "@/components/Providers";
+import {AOSInit} from "@/components/AOSInit";
 
 const sora = Sora({subsets: ["latin"], variable: "--font-sora", display: "swap"});
 
@@ -23,6 +24,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="en" className={sora.variable}>
       <body>
         <Providers>{children}</Providers>
+        <AOSInit />
       </body>
     </html>
   );
