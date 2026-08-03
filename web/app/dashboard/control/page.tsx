@@ -91,7 +91,7 @@ function LaunchCard({agentId, agentName}: {agentId: string; agentName: string}) 
   };
 
   return (
-    <div className="kpi-card p-5 mb-6">
+    <div className="kpi-card p-5 mb-6" data-aos="fade-up">
       <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-3">Launch Autonomous QA Agent</div>
       <div className="text-[12px] text-text-muted mb-4">
         Runs the structured ```scenario blocks from QA.md against <span className="font-mono text-text-primary">{agentName}</span>. The opencode brain decides each request; SpendArc&apos;s policy engine approves or blocks it.
@@ -121,7 +121,7 @@ function RunDetail({runId, onBack}: {runId: string; onBack: () => void}) {
         ← All runs
       </button>
 
-      <div className="kpi-card p-5 mb-6">
+      <div className="kpi-card p-5 mb-6" data-aos="fade-up">
         <div className="flex items-center justify-between mb-3">
           <div className="text-[13px] font-semibold text-text-primary">{run?.mission ?? "Loading run..."}</div>
           <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ function RunDetail({runId, onBack}: {runId: string; onBack: () => void}) {
         </div>
       </div>
 
-      <div className="kpi-card">
+      <div className="kpi-card" data-aos="fade-up" data-aos-delay="100">
         <div className="px-5 pt-5 pb-2">
           <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Live Event Feed</div>
           <div className="text-[12px] text-text-muted mt-1">Auto-refreshes every 2 seconds while the agent runs.</div>
@@ -184,7 +184,7 @@ export default function ControlPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Agent Control</h1>
         <p className="text-[13px] text-text-muted mt-1">Launch and supervise the autonomous QA agent</p>
       </div>
@@ -194,15 +194,17 @@ export default function ControlPage() {
       ) : (
         <div className="space-y-6">
           {agentId ? (
-            <LaunchCard agentId={agentId} agentName={agentName} />
+            <div data-aos="fade-up">
+              <LaunchCard agentId={agentId} agentName={agentName} />
+            </div>
           ) : (
-            <div className="kpi-card p-8 text-center">
+            <div className="kpi-card p-8 text-center" data-aos="fade-up">
               <div className="text-[13px] text-text-secondary">No agent configured</div>
               <div className="text-[12px] text-text-muted mt-1">Create an agent on the Agents page first.</div>
             </div>
           )}
 
-          <div className="kpi-card">
+          <div className="kpi-card" data-aos="fade-up" data-aos-delay="100">
             <div className="px-5 pt-5 pb-3">
               <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Previous Runs</div>
             </div>
