@@ -17,9 +17,9 @@ function HealthIcon({ok}: {ok: boolean}) {
   );
 }
 
-function SettingsSection({title, children}: {title: string; children: React.ReactNode}) {
+function SettingsSection({title, children, delay = 0}: {title: string; children: React.ReactNode; delay?: number}) {
   return (
-    <div className="kpi-card p-5">
+    <div className="kpi-card p-5" data-aos="fade-up" data-aos-delay={delay}>
       <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-4">{title}</div>
       {children}
     </div>
@@ -93,7 +93,7 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 max-w-[900px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Settings</h1>
         <p className="text-[13px] text-text-muted mt-1">System configuration and environment</p>
       </div>
@@ -118,7 +118,7 @@ export default function SettingsPage() {
         </SettingsSection>
 
         {/* Vault */}
-        <SettingsSection title="Vault">
+        <SettingsSection title="Vault" delay={60}>
           <div className="space-y-2 text-[13px]">
             <div className="flex items-center justify-between">
               <span className="text-text-muted">Address</span>
@@ -157,7 +157,7 @@ export default function SettingsPage() {
         </SettingsSection>
 
         {/* Connected Wallet */}
-        <SettingsSection title="Wallet">
+        <SettingsSection title="Wallet" delay={120}>
           {isConnected && address ? (
             <div className="space-y-2 text-[13px]">
               <div className="flex items-center justify-between">
@@ -178,7 +178,7 @@ export default function SettingsPage() {
         </SettingsSection>
 
         {/* Environment Variables */}
-        <SettingsSection title="Environment">
+        <SettingsSection title="Environment" delay={180}>
           <div className="space-y-2 text-[13px]">
             {Object.entries(envVars).map(([key, value]) => (
               <div key={key} className="flex items-center justify-between">
@@ -195,7 +195,7 @@ export default function SettingsPage() {
         </SettingsSection>
 
         {/* Health Check */}
-        <SettingsSection title="System Health">
+        <SettingsSection title="System Health" delay={240}>
           <div className="space-y-2">
             {health.length === 0 ? (
               <div className="text-[13px] text-text-muted">Checking...</div>
