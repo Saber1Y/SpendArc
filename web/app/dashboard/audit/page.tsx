@@ -90,17 +90,17 @@ export default function AuditPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Audit Log</h1>
         <p className="text-[13px] text-text-muted mt-1">Complete timeline of spending decisions and policy events</p>
       </div>
 
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-2 mb-6" data-aos="fade-up" data-aos-delay="50">
         {filters.map((f) => (
           <button
             key={f.value}
             onClick={() => setFilter(f.value)}
-            className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition motion-safe:active:scale-[0.98] ${
               filter === f.value
                 ? "bg-accent/10 text-accent"
                 : "text-text-muted hover:bg-surface-hover"
@@ -112,7 +112,7 @@ export default function AuditPage() {
         ))}
       </div>
 
-      <div className="kpi-card">
+      <div className="kpi-card" data-aos="fade-up" data-aos-delay="100">
         <div className="px-5">
           {loading && filtered.length === 0 ? (
             <div className="space-y-4 py-4">
