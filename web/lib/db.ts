@@ -73,6 +73,31 @@ function initSchema(db: Database.Database) {
       details TEXT DEFAULT '{}',
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      mission TEXT NOT NULL,
+      budget INTEGER NOT NULL DEFAULT 0,
+      spent INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'running',
+      model TEXT NOT NULL DEFAULT '',
+      passed INTEGER NOT NULL DEFAULT 0,
+      failed INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      started_at INTEGER,
+      ended_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_run_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL REFERENCES agent_runs(id),
+      kind TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      details TEXT DEFAULT '{}',
+      tx_hash TEXT,
+      created_at INTEGER NOT NULL
+    );
   `);
 }
 
@@ -128,6 +153,44 @@ export interface AuditLog {
   details: string;
   created_at: number;
 }
+
+export interface AgentRun {
+  id: string;
+  agent_id: string;
+  mission: string;
+  budget: number;
+  spent: number;
+  status: string;
+  model: string;
+  passed: number;
+  failed: number;
+  created_at: number;
+  started_at: number | null;
+  ended_at: number | null;
+}
+
+export interface AgentRunEvent {
+  id: number;
+  run_id: string;
+  kind: string;
+  summary: string;
+  details: string;
+  tx_hash: string | null;
+  created_at: number;
+}
+
+export type AgentRunEventKind =
+  | "scenario"
+  | "decision"
+  | "request"
+  | "approved"
+  | "blocked"
+  | "failed"
+  | "passed"
+  | "fail"
+  | "info"
+  | "error"
+  | "run_end";
 
 // ---- Agents ----
 
@@ -228,6 +291,67 @@ export function listAuditLogs(limit: number = 50): AuditLog[] {
 function addAuditLog(entityType: string, entityId: string, action: string, details: Record<string, unknown> = {}) {
   const now = Math.floor(Date.now() / 1000);
   getDb().prepare("INSERT INTO audit_logs (entity_type, entity_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)").run(entityType, entityId, action, JSON.stringify(details), now);
+}
+
+// ---- Agent runs ----
+
+export function createAgentRun(input: {agent_id: string; mission: string; budget: number; model: string}): AgentRun {
+  const id = `run_${randomUUID().slice(0, 12)}`;
+  const now = Math.floor(Date.now() / 1000);
+  const run: AgentRun = {
+    id,
+    agent_id: input.agent_id,
+    mission: input.mission,
+    budget: input.budget,
+    spent: 0,
+    status: "running",
+    model: input.model,
+    passed: 0,
+    failed: 0,
+    created_at: now,
+    started_at: now,
+    ended_at: null,
+  };
+  getDb().prepare("INSERT INTO agent_runs (id, agent_id, mission, budget, spent, status, model, passed, failed, created_at, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(run.id, run.agent_id, run.mission, run.budget, run.spent, run.status, run.model, run.passed, run.failed, run.created_at, run.started_at, run.ended_at);
+  addAuditLog("agent_run", run.id, "agent_run_created", {agent_id: run.agent_id, mission: run.mission});
+  return run;
+}
+
+export function getAgentRun(id: string): AgentRun | undefined {
+  return getDb().prepare("SELECT * FROM agent_runs WHERE id = ?").get(id) as AgentRun | undefined;
+}
+
+export function listAgentRuns(agentId?: string, limit: number = 20): AgentRun[] {
+  if (agentId) {
+    return getDb().prepare("SELECT * FROM agent_runs WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?").all(agentId, limit) as AgentRun[];
+  }
+  return getDb().prepare("SELECT * FROM agent_runs ORDER BY created_at DESC LIMIT ?").all(limit) as AgentRun[];
+}
+
+export function updateAgentRun(id: string, fields: Partial<Pick<AgentRun, "status" | "spent" | "passed" | "failed" | "ended_at">>): AgentRun | undefined {
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  for (const [k, v] of Object.entries(fields)) {
+    sets.push(`${k} = ?`);
+    vals.push(v);
+  }
+  vals.push(id);
+  getDb().prepare(`UPDATE agent_runs SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+  return getAgentRun(id);
+}
+
+export function endAgentRun(id: string, status: string): AgentRun | undefined {
+  return updateAgentRun(id, {status, ended_at: Math.floor(Date.now() / 1000)});
+}
+
+export function addAgentRunEvent(runId: string, kind: AgentRunEventKind, summary: string, details: Record<string, unknown> = {}, txHash?: string | null): AgentRunEvent {
+  const now = Math.floor(Date.now() / 1000);
+  const result = getDb().prepare("INSERT INTO agent_run_events (run_id, kind, summary, details, tx_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(runId, kind, summary, JSON.stringify(details), txHash ?? null, now);
+  return getDb().prepare("SELECT * FROM agent_run_events WHERE id = ?").get(result.lastInsertRowid) as AgentRunEvent;
+}
+
+export function listAgentRunEvents(runId: string, limit: number = 200): AgentRunEvent[] {
+  return getDb().prepare("SELECT * FROM agent_run_events WHERE run_id = ? ORDER BY id ASC LIMIT ?").all(runId, limit) as AgentRunEvent[];
 }
 
 // ---- Daily spent reset ----

@@ -10,6 +10,7 @@ import { LoginGate } from "@/components/dashboard/LoginGate";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: "grid" },
+  { href: "/dashboard/control", label: "Agent Control", icon: "bot" },
   { href: "/dashboard/spending", label: "Spending", icon: "arrow-up-right" },
   { href: "/dashboard/policies", label: "Policies", icon: "shield" },
   { href: "/dashboard/agents", label: "Agents", icon: "bot" },
