@@ -169,7 +169,7 @@ function TransactionTable({transactions, loading, filter}: {transactions: Return
     : transactions.filter((t) => {
         if (filter === "confirmed") return t.execution_status === "CONFIRMED";
         if (filter === "blocked") return t.execution_status === "BLOCKED";
-        if (filter === "failed") return t.execution_status === "FAILED" || t.execution_status === "BLOCKED";
+        if (filter === "failed") return t.execution_status === "FAILED";
         return true;
       });
 
