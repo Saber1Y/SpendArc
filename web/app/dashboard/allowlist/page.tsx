@@ -314,20 +314,24 @@ export default function AllowlistPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Allowlist</h1>
         <p className="text-[13px] text-text-muted mt-1">Access control management for agent spending</p>
       </div>
 
       {!isOwner && isConnected && (
-        <div className="mb-6 rounded-lg border border-state-pending/30 bg-state-pending-light p-4 text-[12px] text-text-muted">
+        <div className="mb-6 rounded-lg border border-state-pending/30 bg-state-pending-light p-4 text-[12px] text-text-muted" data-aos="fade-up">
           Connect the vault owner wallet to manage on-chain allowlists.
         </div>
       )}
 
       <div className="space-y-6">
-        <RecipientSection state={state} isOwner={isOwner} agent={agentAddress} refetch={refetch} />
-        <TokenSection isOwner={isOwner} agent={agentAddress} />
+        <div data-aos="fade-up">
+          <RecipientSection state={state} isOwner={isOwner} agent={agentAddress} refetch={refetch} />
+        </div>
+        <div data-aos="fade-up" data-aos-delay="100">
+          <TokenSection isOwner={isOwner} agent={agentAddress} />
+        </div>
       </div>
     </div>
   );
