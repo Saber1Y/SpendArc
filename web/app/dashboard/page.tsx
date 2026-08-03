@@ -13,9 +13,9 @@ import {StateBadge} from "@/components/ui/StateBadge";
 import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
 import {parseUnits} from "viem";
 
-function KPICard({label, value, sub, accent}: {label: string; value: string | number; sub?: string; accent?: boolean}) {
+function KPICard({label, value, sub, accent, delay = 0}: {label: string; value: string | number; sub?: string; accent?: boolean; delay?: number}) {
   return (
-    <div className="kpi-card p-5">
+    <div className="kpi-card p-5" data-aos="fade-up" data-aos-delay={delay}>
       <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-2">{label}</div>
       <div className={`text-2xl font-semibold tracking-tight ${accent ? "text-accent" : "text-text-primary"}`}>
         {value}
@@ -336,7 +336,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-8">
+      <div className="mb-8" data-aos="fade-up">
         <h1 className="text-[24px] font-semibold text-text-primary tracking-tight">SpendArc</h1>
         <p className="text-[13px] text-text-muted mt-1">
           Control what autonomous agents can spend, where they can spend it, and how much they can spend.
@@ -357,20 +357,21 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <KPICard label="Total USDC Controlled" value={state ? `$${formatUsdc(state.vaultBalance)}` : "$0"} sub="USDC in vault" accent />
-        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "$0"} sub="USDC" />
-        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "$0"} sub="USDC" />
-        <KPICard label="Approved" value={confirmedCount} sub="transactions" />
-        <KPICard label="Blocked" value={blockedCount} sub="transactions" />
+        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "$0"} sub="USDC" delay={60} />
+        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "$0"} sub="USDC" delay={120} />
+        <KPICard label="Approved" value={confirmedCount} sub="transactions" delay={180} />
+        <KPICard label="Blocked" value={blockedCount} sub="transactions" delay={240} />
         <KPICard
           label="Agent Status"
           value={loading ? "..." : state?.policy.active ? "Active" : "Revoked"}
           sub={state?.policy.active ? "Policy enforced" : "Needs attention"}
+          delay={300}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="kpi-card p-5">
+          <div className="kpi-card p-5" data-aos="fade-up">
             <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-4">Spending Analytics</div>
             {transactions.length === 0 ? (
               <EmptyState title="No spending data yet" description="Once the agent makes spending requests, analytics will appear here." />
@@ -400,7 +401,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="kpi-card">
+          <div className="kpi-card" data-aos="fade-up" data-aos-delay="100">
             <div className="px-5 pt-5 pb-3">
               <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Recent Activity</div>
             </div>
@@ -411,9 +412,15 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-6">
-          <PolicyHealthCard state={state} recipientCount={recipients.length} tokenCount={tokens.length} />
-          <AgentHealthCard state={state} loading={loading} agent={agent} />
-          <VaultFundCard state={state} refetch={refetch} />
+          <div data-aos="fade-up" data-aos-delay="120">
+            <PolicyHealthCard state={state} recipientCount={recipients.length} tokenCount={tokens.length} />
+          </div>
+          <div data-aos="fade-up" data-aos-delay="180">
+            <AgentHealthCard state={state} loading={loading} agent={agent} />
+          </div>
+          <div data-aos="fade-up" data-aos-delay="240">
+            <VaultFundCard state={state} refetch={refetch} />
+          </div>
         </div>
       </div>
     </div>
