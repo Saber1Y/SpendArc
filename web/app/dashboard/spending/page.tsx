@@ -262,14 +262,14 @@ export default function SpendingPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Spending</h1>
         <p className="text-[13px] text-text-muted mt-1">Agent spending operations and transaction history</p>
       </div>
 
       <div className="space-y-6">
         {agents.length > 0 && (
-          <div className="kpi-card p-4 flex items-center gap-4">
+          <div className="kpi-card p-4 flex items-center gap-4" data-aos="fade-up">
             <span className="text-[12px] text-text-muted">Agent:</span>
             <select
               value={agentId}
@@ -283,15 +283,17 @@ export default function SpendingPage() {
           </div>
         )}
         {agentId ? (
-          <RunAgentSection agentId={agentId} refetch={refetch} />
+          <div data-aos="fade-up">
+            <RunAgentSection agentId={agentId} refetch={refetch} />
+          </div>
         ) : (
-          <div className="kpi-card p-8 text-center">
+          <div className="kpi-card p-8 text-center" data-aos="fade-up">
             <div className="text-[13px] text-text-secondary">No agent configured</div>
             <div className="text-[12px] text-text-muted mt-1">Create an agent on the Agents page first.</div>
           </div>
         )}
 
-        <div className="kpi-card">
+        <div className="kpi-card" data-aos="fade-up" data-aos-delay="100">
           <div className="px-5 pt-5 pb-3 flex items-center justify-between">
             <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Transaction History</div>
             <div className="flex items-center gap-1">
@@ -299,7 +301,7 @@ export default function SpendingPage() {
                 <button
                   key={f.value}
                   onClick={() => setFilter(f.value)}
-                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition motion-safe:active:scale-[0.98] ${
                     filter === f.value
                       ? "bg-accent/10 text-accent"
                       : "text-text-muted hover:bg-surface-hover"
