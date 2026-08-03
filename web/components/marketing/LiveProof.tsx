@@ -13,7 +13,7 @@ import {explorerTx} from "@/lib/chain";
 function ProofColumn({data}: {data: ProofResult | undefined}) {
   const approved = data?.kind === "approved";
   return (
-    <Card tone="paper" pad="lg" className="flex flex-col gap-6">
+    <Card tone="paper" pad="lg" className="flex h-full flex-col gap-6">
       <div className="flex items-center justify-between">
         {data ? <StateBadge kind={data.kind} /> : <Skeleton className="h-6 w-24" />}
         {data ? (
@@ -81,7 +81,7 @@ export function LiveProof() {
   return (
     <section id="proof" className="bg-surface-muted px-6">
       <div className="mx-auto max-w-[1200px] py-16 sm:py-20 lg:py-24">
-        <div className="max-w-[56ch]">
+        <div data-aos="fade-up" className="max-w-[56ch]">
           <Eyebrow>Live proof - on-chain</Eyebrow>
           <h2 className="mt-4 text-heading leading-tight text-text-primary sm:text-heading-lg sm:leading-[1.1]" style={{fontWeight: 600}}>
             Same agent. One variable.
@@ -94,13 +94,17 @@ export function LiveProof() {
         </div>
 
         <div className="mt-12 grid items-stretch gap-6 lg:grid-cols-[1fr_auto_1fr]">
-          <ProofColumn data={approved} />
+          <div data-aos="fade-up" data-aos-duration="550">
+            <ProofColumn data={approved} />
+          </div>
           <div className="flex items-center justify-center">
             <span className="rounded-full border border-border bg-white px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-text-muted">
               vs
             </span>
           </div>
-          <ProofColumn data={blocked} />
+          <div data-aos="fade-up" data-aos-delay="150" data-aos-duration="550">
+            <ProofColumn data={blocked} />
+          </div>
         </div>
       </div>
     </section>
