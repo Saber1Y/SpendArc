@@ -1,7 +1,7 @@
 "use client";
 
 import {useState} from "react";
-import {useVaultState, useApiTransactions, txToAction} from "@/lib/hooks";
+import {useVaultState, useApiTransactions, useApiAgents, useApiAllowlist, txToAction} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {CONTRACTS, vaultAbi, usdcAbi} from "@/lib/contracts";
@@ -34,7 +34,11 @@ function EmptyState({title, description}: {title: string; description: string}) 
   );
 }
 
-function PolicyHealthCard({state}: {state: ReturnType<typeof useVaultState>["data"]}) {
+function PolicyHealthCard({state, recipientCount, tokenCount}: {
+  state: ReturnType<typeof useVaultState>["data"];
+  recipientCount: number;
+  tokenCount: number;
+}) {
   if (!state) return null;
   const {policy, remainingDailyCap} = state;
   const expiryDate = policy.expiry === 0n ? null : new Date(Number(policy.expiry) * 1000);
@@ -65,11 +69,11 @@ function PolicyHealthCard({state}: {state: ReturnType<typeof useVaultState>["dat
         <div className="border-t border-border my-2" />
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Allowlisted recipients</span>
-          <span className="text-[13px] font-medium text-text-primary">{"1"}</span>
+          <span className="text-[13px] font-medium text-text-primary">{recipientCount}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-text-muted">Allowlisted tokens</span>
-          <span className="text-[13px] font-medium text-text-primary">{state.tokenAllowed ? "1" : "0"}</span>
+          <span className="text-[13px] font-medium text-text-primary">{tokenCount}</span>
         </div>
       </div>
       <div className="mt-4">
@@ -321,6 +325,8 @@ export default function DashboardPage() {
   const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
   const {data: state, loading, refetch} = useVaultState(agent);
   const {transactions, loading: txLoading} = useApiTransactions();
+  const {agents} = useApiAgents();
+  const {recipients, tokens} = useApiAllowlist(agents[0]?.id);
   const {address, isConnected} = useActiveAddress();
 
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
@@ -405,7 +411,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-6">
-          <PolicyHealthCard state={state} />
+          <PolicyHealthCard state={state} recipientCount={recipients.length} tokenCount={tokens.length} />
           <AgentHealthCard state={state} loading={loading} agent={agent} />
           <VaultFundCard state={state} refetch={refetch} />
         </div>
