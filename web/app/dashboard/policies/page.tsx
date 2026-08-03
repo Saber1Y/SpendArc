@@ -93,7 +93,7 @@ function EmergencyRevoke({agent, isOwner, refetch}: {agent: Address; isOwner: bo
   const write = useOwnerWrite(() => { refetch(); setConfirming(false); });
 
   return (
-    <div className="kpi-card p-5 border border-state-blocked/20">
+    <div className="kpi-card p-5 border border-state-blocked/20" data-aos="fade-up" data-aos-delay="150">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-[13px] font-semibold text-text-primary">Emergency Revoke</div>
@@ -139,13 +139,13 @@ export default function PoliciesPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Policies</h1>
         <p className="text-[13px] text-text-muted mt-1">Spending policy configuration and enforcement rules</p>
       </div>
 
       <div className="space-y-6">
-        <div className="kpi-card p-6">
+        <div className="kpi-card p-6" data-aos="fade-up">
           <div className="flex items-center justify-between mb-6">
             <div>
               <div className="text-[13px] font-semibold text-text-primary">On-Chain Spending Policy</div>
@@ -197,7 +197,7 @@ export default function PoliciesPage() {
           ) : null}
         </div>
 
-        <div className="kpi-card p-6">
+        <div className="kpi-card p-6" data-aos="fade-up" data-aos-delay="100">
           <div className="text-[13px] font-semibold text-text-primary mb-4">Server-Side Policy</div>
           <div className="text-[12px] text-text-muted mb-4">
             Configured via the API and evaluated before on-chain enforcement.
