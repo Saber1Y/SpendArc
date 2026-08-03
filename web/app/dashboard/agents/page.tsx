@@ -6,9 +6,9 @@ import {isSameAddress, formatUsdc, truncateAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
 import {isAddress, type Address} from "viem";
 
-function AgentCard({agent, state, loading}: {agent: {id: string; name: string; address: string}; state: ReturnType<typeof useVaultState>["data"]; loading: boolean}) {
+function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name: string; address: string}; state: ReturnType<typeof useVaultState>["data"]; loading: boolean; delay?: number}) {
   return (
-    <div className="kpi-card p-6">
+    <div className="kpi-card p-6" data-aos="fade-up" data-aos-delay={delay}>
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="text-[13px] font-semibold text-text-primary">{agent.name}</div>
@@ -65,7 +65,7 @@ function AgentCard({agent, state, loading}: {agent: {id: string; name: string; a
 
 function VaultSummary({state, loading}: {state: ReturnType<typeof useVaultState>["data"]; loading: boolean}) {
   return (
-    <div className="kpi-card p-6">
+    <div className="kpi-card p-6" data-aos="fade-up">
       <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-4">Vault Summary</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="p-4 rounded-lg border border-accent/20 bg-accent-light/30">
@@ -147,7 +147,7 @@ function CreateAgentForm({onCreated}: {onCreated: () => void}) {
   };
 
   return (
-    <div className="kpi-card p-6">
+    <div className="kpi-card p-6" data-aos="fade-up">
       <div className="text-[13px] font-semibold text-text-primary mb-1">Create Agent</div>
       <div className="text-[12px] text-text-muted mb-4">Register a new agent in the policy engine.</div>
       <div className="flex gap-3 items-start">
@@ -189,7 +189,7 @@ export default function AgentsPage() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-6" data-aos="fade-up">
         <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Agents</h1>
         <p className="text-[13px] text-text-muted mt-1">Agent wallet management and authorization status</p>
       </div>
@@ -199,8 +199,8 @@ export default function AgentsPage() {
         {agents.length === 0 && !agentsLoading ? (
           null
         ) : (
-          agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} state={state} loading={loading} />
+          agents.map((agent, i) => (
+            <AgentCard key={agent.id} agent={agent} state={state} loading={loading} delay={i * 100} />
           ))
         )}
         {firstAgent && <VaultSummary state={state} loading={loading} />}
