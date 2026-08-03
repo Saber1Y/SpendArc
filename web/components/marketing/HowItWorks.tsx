@@ -21,14 +21,21 @@ const steps = [
 export function HowItWorks() {
   return (
     <Section tone="paper" id="how">
-      <Eyebrow>How it works</Eyebrow>
-      <h2 className="mt-4 max-w-[24ch] text-heading leading-tight text-text-primary sm:text-heading-lg sm:leading-[1.1]" style={{fontWeight: 600}}>
-        Fund the vault. Fence the agent.
-      </h2>
+      <div data-aos="fade-up">
+        <Eyebrow>How it works</Eyebrow>
+        <h2 className="mt-4 max-w-[24ch] text-heading leading-tight text-text-primary sm:text-heading-lg sm:leading-[1.1]" style={{fontWeight: 600}}>
+          Fund the vault. Fence the agent.
+        </h2>
+      </div>
 
       <div className="mt-12 grid gap-6 md:grid-cols-3">
-        {steps.map((s) => (
-          <div key={s.n} className="flex flex-col gap-4 rounded-lg border border-border p-6 sm:p-8">
+        {steps.map((s, i) => (
+          <div
+            key={s.n}
+            data-aos="fade-up"
+            data-aos-delay={i * 120}
+            className="flex flex-col gap-4 rounded-lg border border-border p-6 transition-shadow motion-safe:hover:shadow-elevated sm:p-8"
+          >
             <span className="text-heading text-accent" style={{fontWeight: 600}}>
               {s.n}
             </span>
