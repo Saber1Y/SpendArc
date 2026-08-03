@@ -64,6 +64,31 @@ export interface ApiAuditLog {
   created_at: number;
 }
 
+export interface ApiAgentRun {
+  id: string;
+  agent_id: string;
+  mission: string;
+  budget: number;
+  spent: number;
+  status: string;
+  model: string;
+  passed: number;
+  failed: number;
+  created_at: number;
+  started_at: number | null;
+  ended_at: number | null;
+}
+
+export interface ApiAgentRunEvent {
+  id: number;
+  run_id: string;
+  kind: string;
+  summary: string;
+  details: string;
+  tx_hash: string | null;
+  created_at: number;
+}
+
 /** Batched vault-state read. Refetches on window focus + manual + post-action only (no interval). */
 export function useVaultState(agent: Address) {
   const [state, setState] = useState<AsyncState<VaultState>>({data: undefined, loading: true, error: undefined});
@@ -178,6 +203,38 @@ export function useApiAuditLogs(limit = 50) {
   return {logs, loading, error, refetch};
 }
 
+/** Fetch the server-side allowlist (recipients + tokens) for an agent. */
+export function useApiAllowlist(agentId?: string) {
+  const [recipients, setRecipients] = useState<ApiAllowlistEntry[]>([]);
+  const [tokens, setTokens] = useState<ApiAllowlistEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | undefined>();
+
+  const refetch = useCallback(async () => {
+    if (!agentId) {
+      setRecipients([]);
+      setTokens([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await apiFetch<{recipients: ApiAllowlistEntry[]; tokens: ApiAllowlistEntry[]}>(`/api/allowlist/${agentId}`);
+      setRecipients(data.recipients ?? []);
+      setTokens(data.tokens ?? []);
+      setError(undefined);
+    } catch (e) {
+      setError(e as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId]);
+
+  useEffect(() => { void refetch(); }, [refetch]);
+
+  return {recipients, tokens, loading, error, refetch};
+}
+
 /** Map API transactions to AgentAction for display components. */
 export function txToAction(tx: ApiTransaction, defaultAgentAddress = "0x0" as Address): AgentAction {
   return {
@@ -191,4 +248,62 @@ export function txToAction(tx: ApiTransaction, defaultAgentAddress = "0x0" as Ad
     blockNumber: 0n,
     logIndex: 0,
   };
+}
+
+/** Poll agent runs list. */
+export function useApiAgentRuns(agentId?: string, intervalMs = 4000) {
+  const [runs, setRuns] = useState<ApiAgentRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | undefined>();
+
+  const refetch = useCallback(async () => {
+    try {
+      const params = agentId ? `?agentId=${agentId}` : "";
+      const data = await apiFetch<{runs: ApiAgentRun[]}>(`/api/agent-runs${params}`);
+      setRuns(data.runs ?? []);
+      setError(undefined);
+    } catch (e) {
+      setError(e as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId]);
+
+  useEffect(() => {
+    void refetch();
+    const t = setInterval(() => void refetch(), intervalMs);
+    return () => clearInterval(t);
+  }, [refetch, intervalMs]);
+
+  return {runs, loading, error, refetch};
+}
+
+/** Poll a single agent run with its events. */
+export function useApiAgentRun(runId: string | undefined, intervalMs = 2000) {
+  const [run, setRun] = useState<ApiAgentRun | undefined>(undefined);
+  const [events, setEvents] = useState<ApiAgentRunEvent[]>([]);
+  const [loading, setLoading] = useState(!!runId);
+  const [error, setError] = useState<Error | undefined>();
+
+  const refetch = useCallback(async () => {
+    if (!runId) return;
+    try {
+      const data = await apiFetch<{run: ApiAgentRun; events: ApiAgentRunEvent[]}>(`/api/agent-runs/${runId}`);
+      setRun(data.run);
+      setEvents(data.events ?? []);
+      setError(undefined);
+    } catch (e) {
+      setError(e as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [runId]);
+
+  useEffect(() => {
+    void refetch();
+    const t = setInterval(() => void refetch(), intervalMs);
+    return () => clearInterval(t);
+  }, [refetch, intervalMs]);
+
+  return {run, events, loading, error, refetch};
 }
