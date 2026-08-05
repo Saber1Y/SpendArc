@@ -1,10 +1,12 @@
 "use client";
 
 import {useState} from "react";
+import {usePrivy} from "@privy-io/react-auth";
 import {useApiAgents, useVaultState} from "@/lib/hooks";
-import {isSameAddress, formatUsdc, truncateAddress} from "@/lib/format";
+import {useActiveAddress} from "@/lib/usePrivyWallet";
+import {formatUsdc, truncateAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
-import {isAddress, type Address} from "viem";
+import type {Address} from "viem";
 
 function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name: string; address: string}; state: ReturnType<typeof useVaultState>["data"]; loading: boolean; delay?: number}) {
   return (
@@ -123,28 +125,34 @@ function VaultSummary({state, loading}: {state: ReturnType<typeof useVaultState>
   );
 }
 
-function CreateAgentForm({onCreated}: {onCreated: () => void}) {
+function CreateUserAgentCard({onCreated}: {onCreated: () => void}) {
+  const {login} = usePrivy();
+  const {address, isConnected} = useActiveAddress();
   const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [registeredAddress, setRegisteredAddress] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  const create = async () => {
-    if (!name.trim() || !isAddress(address)) return;
+  const register = async () => {
+    if (!address || !name.trim()) return;
     setSaving(true);
     setError("");
+    setApiKey("");
     try {
-      const res = await fetch("/api/agents", {
+      const res = await fetch("/api/agents/user", {
         method: "POST",
         headers: {"content-type": "application/json"},
         body: JSON.stringify({name: name.trim(), address}),
       });
+      const d = await res.json();
       if (!res.ok) {
-        const d = await res.json();
-        setError(d.error ?? "Failed to create");
+        setError(d.message ?? d.error ?? "Failed to register");
       } else {
+        setApiKey(d.apiKey);
+        setRegisteredAddress(d.agent.address);
         setName("");
-        setAddress("");
         onCreated();
       }
     } catch (e) {
@@ -154,35 +162,91 @@ function CreateAgentForm({onCreated}: {onCreated: () => void}) {
     }
   };
 
+  const copyKey = async () => {
+    try {
+      await navigator.clipboard.writeText(apiKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <div className="kpi-card p-6" data-aos="fade-up">
-      <div className="text-[13px] font-semibold text-text-primary mb-1">Create Agent</div>
-      <div className="text-[12px] text-text-muted mb-4">Register a new agent in the policy engine.</div>
-      <div className="flex gap-3 items-start">
-        <div className="flex-1 space-y-2">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Agent name"
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent"
-          />
-          <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="0x..."
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[13px] text-text-primary font-mono outline-none focus:border-accent"
-            spellCheck={false}
-          />
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <div className="text-[13px] font-semibold text-text-primary">Create your agent</div>
+          <div className="text-[12px] text-text-muted mt-0.5">
+            Your wallet address becomes an on-chain vault agent with a scoped spending leash.
+          </div>
         </div>
-        <button
-          onClick={create}
-          disabled={!name.trim() || !isAddress(address) || saving}
-          className="rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-50 shrink-0"
-        >
-          {saving ? "Creating..." : "Create"}
-        </button>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent-light/60 text-[12px] font-medium text-accent shrink-0">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Booth demo
+        </span>
       </div>
-      {error && <div className="text-[12px] text-state-blocked mt-2">{error}</div>}
+
+      {apiKey ? (
+        <div className="mt-4 rounded-lg border border-accent/25 bg-accent-light/20 p-4">
+          <div className="text-[12px] font-medium text-text-primary mb-1">Your agent is live - API key (shown once)</div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-md bg-surface px-3 py-2 text-[12px] font-mono text-text-primary break-all">{apiKey}</code>
+            <button
+              onClick={copyKey}
+              className="shrink-0 rounded-md border border-border bg-white px-3 py-2 text-[12px] font-medium text-text-primary hover:border-accent"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <div className="text-[11px] text-text-muted mt-2">
+            Save it now - it is stored only as a hash. Send it as <code className="text-text-primary">Authorization: Bearer &lt;key&gt;</code> when
+            requesting payments, and to <code className="text-text-primary">/api/agents/me</code> to read your leash.
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4">
+          {!isConnected || !address ? (
+            <button
+              onClick={() => login()}
+              className="rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:bg-accent-hover"
+            >
+              Connect wallet
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[12px] text-text-muted">Connected:</span>
+                <a href={explorerAddress(address as `0x${string}`)} target="_blank" rel="noopener noreferrer" className="text-[12px] font-mono text-accent hover:underline">
+                  {truncateAddress(address as `0x${string}`)}
+                </a>
+              </div>
+              <div className="flex gap-3 items-start">
+                <div className="flex-1 space-y-2">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Agent name (e.g. My Spending Bot)"
+                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent"
+                  />
+                  <div className="text-[11px] text-text-muted">
+                    Default leash: <span className="text-text-primary font-medium">1 USDC</span> per transaction,{" "}
+                    <span className="text-text-primary font-medium">2 USDC</span> per day, payments only to your own address. Gas for
+                    registration is paid by the vault owner.
+                  </div>
+                </div>
+                <button
+                  onClick={register}
+                  disabled={!name.trim() || saving}
+                  className="rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-50 shrink-0"
+                >
+                  {saving ? "Registering..." : "Register agent"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {error && <div className="text-[12px] text-state-blocked mt-3">{error}</div>}
     </div>
   );
 }
@@ -203,7 +267,7 @@ export default function AgentsPage() {
       </div>
 
       <div className="space-y-6">
-        <CreateAgentForm onCreated={refetchAgents} />
+        <CreateUserAgentCard onCreated={refetchAgents} />
         {agents.length === 0 && !agentsLoading ? (
           null
         ) : (
