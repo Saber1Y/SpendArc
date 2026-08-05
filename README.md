@@ -4,13 +4,13 @@
 
 **Agent Spending Control Plane**
 
-Policy-checked, **gasless** spend vaults for autonomous agents on **BOT Chain**. The agent holds
-nothing — a sponsor policy fences it to the vault at the gas layer, and the vault enforces caps,
-allowlists, dedup and receipts on-chain.
+Policy-checked spend vaults for autonomous agents on **Arc testnet**. The agent holds
+nothing - a funded vault enforces caps, allowlists, daily limits and dedup on-chain,
+while a server-side policy gate blocks off-policy calls before they ever touch the chain.
 
 [Architecture](./architecture.md) · [Security](./security.md) · [Adversarial Testing](./adversarialtesting.md)
 
-`BOT Chain testnet 968` · `ERC-4337 v0.7` · `Foundry` · `Next.js` · `viem` · `MIT`
+`Arc testnet 5042002` · `Solidity` · `Foundry` · `Next.js` · `viem` · `MIT`
 
 </div>
 
@@ -18,85 +18,78 @@ allowlists, dedup and receipts on-chain.
 
 ## The idea
 
-Autonomous agents need to move money to act — pay a vendor, settle a task, swap on a DEX. Hand one an
+Autonomous agents need to move money to act - pay a vendor, settle a task, swap on a DEX. Hand one an
 unrestricted key and a single prompt injection, hallucinated action, or runaway loop can drain it.
 
 SpendArc gives the agent a wallet that **holds nothing** and can only ever move value **inside policy**,
 enforced by **two independent fences**:
 
-- **Fence 1 — gas layer (ERC-4337).** The agent is a zero-balance smart account. Every action is a
-  sponsored UserOp, and the paymaster's off-chain signer only signs calls **into the vault**. An
-  off-policy action is never sponsored — with no gas, it can't even be broadcast.
-- **Fence 2 — contract layer (`BOTSpendVault`).** Any sponsored call is checked against the full policy
-  (active, not expired, token allowed, target allowed, per-tx cap, daily cap, dedup) **before** moving a
-  cent. Blocked actions emit an on-chain record and move nothing — no revert.
+- **Fence 1 - control plane (server).** Every payment request is checked against the app's policy store
+  (active, not expired, per-tx cap, daily cap, recipient and token allowlists) before anything is sent to
+  the chain. An off-policy request is answered with a structured `BLOCKED` decision and never broadcast.
+- **Fence 2 - contract layer (`SpendArcVault`).** Any `executeSpend` call is re-checked against the full
+  on-chain policy (active, expiry, token allowed, target allowed, per-tx cap, daily cap, dedup via a unique
+  `actionId`) **before** a single micro-unit of USDC moves. Blocked actions emit an on-chain `AgentActionBlocked`
+  record and move nothing - no revert, no state change.
 
 Neither fence substitutes the other. See **[architecture.md](./architecture.md)** for the full design and
 **[security.md](./security.md)** for the guarantees and threat model.
 
-## Live on BOT Chain testnet 968
+## Live on Arc testnet 5042002
 
-RPC `https://rpc.bohr.life` · Explorer `https://scan.bohr.life` · Bundler `https://bundler.bohr.life/rpc`
+RPC `https://rpc.testnet.arc.network` · Explorer `https://testnet.arcscan.app`
 
 | Contract | Address |
 |----------|---------|
-| **BOTSpendVault** | [`0xbE4e1109d0c8f9558E16A6C59388B6Fb210a2F88`](https://scan.bohr.life/address/0xbE4e1109d0c8f9558E16A6C59388B6Fb210a2F88) |
-| **BOTSpendPaymaster** | [`0x5431d8538Fc62Da83A02dCFc275616f24b4587c4`](https://scan.bohr.life/address/0x5431d8538Fc62Da83A02dCFc275616f24b4587c4) |
-| **SimpleAccountFactory** | [`0xC7e8a13d62752Eb58b21391f2BA302B1043D13b1`](https://scan.bohr.life/address/0xC7e8a13d62752Eb58b21391f2BA302B1043D13b1) |
-| **MockUSD** (mUSD, 6dp) | [`0x981a7E272F309193D846dc585b64E4a2f172aD21`](https://scan.bohr.life/address/0x981a7E272F309193D846dc585b64E4a2f172aD21) |
-| **EntryPoint v0.7** (canonical, pre-existing) | [`0x0000000071727De22E5E9d8BAf0edAc6f37da032`](https://scan.bohr.life/address/0x0000000071727De22E5E9d8BAf0edAc6f37da032) |
+| **SpendArcVault** | [`0xf23147Df55089eA6bA87BF24bb4eEE6f7Cea182b`](https://testnet.arcscan.app/address/0xf23147Df55089eA6bA87BF24bb4eEE6f7Cea182b) |
+| **Agent / owner** | [`0x3F5b96A494061F7338Da529e3047809Ac6a7FB84`](https://testnet.arcscan.app/address/0x3F5b96A494061F7338Da529e3047809Ac6a7FB84) |
+| **USDC (testnet)** | [`0x3600000000000000000000000000000000000000`](https://testnet.arcscan.app/address/0x3600000000000000000000000000000000000000) |
 
 ### Proven on-chain artifacts
 
-- **Gasless deploy + approved spend** (one sponsored UserOp deploys the account *and* spends): tx
-  [`0xb2143fb3…`](https://scan.bohr.life/tx/0xb2143fb3de65583fa75655b068cf23189a39b1a810c98e41653f67c7f6997d2c)
-- **Blocked-by-policy** (over-cap, sponsored but held; paymaster still pays — no value moves): tx
-  [`0x299021d9…`](https://scan.bohr.life/tx/0x299021d91bdd354f3c9462629b0f10219578be08f1fe9c3e9e187e982e7f25f9)
+- **Approved spend** (1.5 USDC, under the 5 USDC per-tx cap): tx
+  [`0xa1295391…`](https://testnet.arcscan.app/tx/0xa12953915fba548cb16128bb53fa5c51c406f7d051a922db8dc0b2be3678ad5b)
+- **Blocked-by-policy** (6 USDC vs the 5 USDC cap - `AgentActionBlocked`, nothing moved): tx
+  [`0x892fa9cf…`](https://testnet.arcscan.app/tx/0x892fa9cf430c86a1fa5266ca2ca1b9617694ce1579fa223e672bf67c652fc81b)
 
-The two are the *same* op with one variable changed (4 mUSD vs 6 mUSD against a 5 mUSD cap) — the
-difference lives entirely in the events and the untouched balances.
+The two are the *same* agent with one variable changed (1.5 USDC vs 6 USDC against the 5 USDC cap) - the
+difference lives entirely in the on-chain events and the untouched balances. The marketing site reads both
+receipts live on every page load.
 
 ## Repository layout
 
 ```
-src/                      Solidity — BOTSpendVault.sol, MockUSD.sol
-test/                     Foundry suite (unit, fuzz, fork) + mocks
-script/                   deploy scripts (DeployAll, DeployAccountFactory, …)
-client/                   TypeScript agent client + off-chain sponsor signer (viem)
-  src/{getHash,userOp,signer,config}.ts     paymaster getHash + UserOp packing + signer policy
-  test/                                     differential + fork tests
-web/                      Next.js frontend (marketing + dashboard + /api/sponsor)
-lib/                      vendored deps (OpenZeppelin, forge-std, account-abstraction @ v0.7.0)
-foundry.toml              evm_version = cancun
+src/                      Solidity - SpendArcVault.sol
+test/                     Foundry suite (unit + fork tests)
+script/                   deploy scripts (DeployArc, ...)
+client/                   TypeScript agent client (viem)
+web/                      Next.js frontend (marketing + dashboard + API routes)
+lib/                      vendored deps (OpenZeppelin, forge-std)
+foundry.toml              evm_version
 ```
 
 ## Quick start
 
 ```bash
-# Contracts — build + test (Foundry)
+# Contracts - build + test (Foundry)
 forge build
-forge test                       # hermetic unit + fuzz
-forge test --match-path "test/fork/*"   # fork tests vs the real EntryPoint on 968
+forge test
 
-# Agent client — off-chain signer equivalence + end-to-end (viem)
-cd client && npm i && npm test
-
-# Frontend — marketing + dashboard
-cd web && npm i && npm run dev   # http://localhost:3000
+# Frontend - marketing + dashboard + API
+cd web && npm install && npm run dev   # http://localhost:3000
 ```
 
-To run the **live gasless demo** locally, set the two signer keys (see `web/.env.example`) — the
-`/api/sponsor` route signs sponsorship + submits the UserOp server-side. Without them the dashboard is
-still fully live in read-only + owner-write mode.
+Copy `web/.env.example` to `web/.env.local` and fill in the Arc RPC, the deployed vault address, the
+Privy app ID, and the two signer keys (`EXECUTOR_PRIVATE_KEY` broadcasts vault spends, the vault owner key
+configures policy). The dashboard is fully live in read-only mode without them; owner-write controls need
+the owner wallet connected.
 
 ## Documentation
 
-- **[architecture.md](./architecture.md)** — the two fences, components, the UserOp lifecycle, the
-  address model, the three replay layers.
-- **[security.md](./security.md)** — guarantees, the storage-free paymaster invariant, the F6 tradeoff,
-  key management, and the known v1 limitation.
-- **[adversarialtesting.md](./adversarialtesting.md)** — the test strategy: unit, differential fuzz,
-  fork-against-real-EntryPoint, the live simulation gate, and on-chain acceptance.
+- **[architecture.md](./architecture.md)** - the two fences, components, the payment lifecycle.
+- **[security.md](./security.md)** - guarantees, threat model, and key management.
+- **[adversarialtesting.md](./adversarialtesting.md)** - the test strategy: unit, differential fuzz,
+  fork-against-real-chain, and on-chain acceptance.
 
 ## License
 

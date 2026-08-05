@@ -96,7 +96,11 @@ function AgentHealthCard({state, loading, agent}: {state: ReturnType<typeof useV
           <span className="text-[12px] text-text-muted">Authorization</span>
           {loading ? (
             <span className="text-[12px] text-text-muted">Loading...</span>
-          ) : state?.policy.active ? (
+          ) : !state ? (
+            <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-pending">
+              <span className="h-1.5 w-1.5 rounded-full bg-state-pending" /> Unavailable
+            </span>
+          ) : state.policy.active ? (
             <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-approved">
               <span className="h-1.5 w-1.5 rounded-full bg-state-approved" /> Active
             </span>
@@ -323,7 +327,7 @@ function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState
 
 export default function DashboardPage() {
   const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
-  const {data: state, loading, refetch} = useVaultState(agent);
+  const {data: state, loading, error, refetch} = useVaultState(agent);
   const {transactions, loading: txLoading} = useApiTransactions();
   const {agents} = useApiAgents();
   const {recipients, tokens} = useApiAllowlist(agents[0]?.id);
@@ -356,18 +360,33 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <KPICard label="Total USDC Controlled" value={state ? `$${formatUsdc(state.vaultBalance)}` : "$0"} sub="USDC in vault" accent />
-        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "$0"} sub="USDC" delay={60} />
-        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "$0"} sub="USDC" delay={120} />
+        <KPICard label="Total USDC Controlled" value={state ? `$${formatUsdc(state.vaultBalance)}` : "-"} sub="USDC in vault" accent />
+        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "-"} sub="USDC" delay={60} />
+        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "-"} sub="USDC" delay={120} />
         <KPICard label="Approved" value={confirmedCount} sub="transactions" delay={180} />
         <KPICard label="Blocked" value={blockedCount} sub="transactions" delay={240} />
         <KPICard
           label="Agent Status"
-          value={loading ? "..." : state?.policy.active ? "Active" : "Revoked"}
-          sub={state?.policy.active ? "Policy enforced" : "Needs attention"}
+          value={loading ? "..." : !state ? "Unavailable" : state.policy.active ? "Active" : "Revoked"}
+          sub={loading ? "Loading policy" : !state ? "On-chain read failed" : state.policy.active ? "Policy enforced" : "Needs attention"}
           delay={300}
         />
       </div>
+
+      {error && !state && (
+        <div className="flex items-center justify-between rounded-lg border border-state-pending/30 bg-state-pending-light px-4 py-3 mb-8" data-aos="fade-up">
+          <div className="text-[12px] text-state-pending">
+            Could not read on-chain vault state. This is a network issue, not a policy revocation.
+            <span className="block text-[11px] text-state-pending/70 mt-0.5 break-all font-mono">{error.message}</span>
+          </div>
+          <button
+            onClick={() => void refetch()}
+            className="ml-4 shrink-0 rounded-lg border border-state-pending/40 px-3 py-1.5 text-[12px] font-medium text-state-pending hover:bg-state-pending/10 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

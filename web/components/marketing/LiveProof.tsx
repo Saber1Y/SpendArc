@@ -6,9 +6,10 @@ import {Card} from "@/components/ui/Card";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {TxChip, Chip} from "@/components/ui/Chip";
 import {Skeleton} from "@/components/ui/Row";
-import {fetchProof, type ProofResult} from "@/lib/proof";
+import {fetchProof, PROOF_TX, type ProofResult} from "@/lib/proof";
 import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
+import {AGENT_ADDRESS} from "@/lib/contracts";
 
 function ProofColumn({data}: {data: ProofResult | undefined}) {
   const approved = data?.kind === "approved";
@@ -17,7 +18,7 @@ function ProofColumn({data}: {data: ProofResult | undefined}) {
       <div className="flex items-center justify-between">
         {data ? <StateBadge kind={data.kind} /> : <Skeleton className="h-6 w-24" />}
         {data ? (
-          <Chip tone="outline">{data.live ? "live read" : "snapshot"}</Chip>
+          <Chip tone={data.source === "chain" ? "accent" : "outline"}>{data.source === "chain" ? "live read" : "snapshot"}</Chip>
         ) : (
           <Skeleton className="h-6 w-16" />
         )}
@@ -55,7 +56,11 @@ function ProofColumn({data}: {data: ProofResult | undefined}) {
         <div className="flex items-center justify-between gap-3">
           <span className="text-text-muted">Transaction</span>
           {data ? (
-            <TxChip href={explorerTx(data.txHash)} label={truncateHash(data.txHash)} />
+            data.txHash ? (
+              <TxChip href={explorerTx(data.txHash)} label={truncateHash(data.txHash)} />
+            ) : (
+              <span className="text-right text-text-muted">blocked - no tx</span>
+            )
           ) : (
             <Skeleton className="h-6 w-32" />
           )}
@@ -71,8 +76,8 @@ export function LiveProof() {
 
   useEffect(() => {
     let alive = true;
-    fetchProof("approved").then((r) => alive && setApproved(r));
-    fetchProof("blocked").then((r) => alive && setBlocked(r));
+    fetchProof("approved", PROOF_TX.approved).then((r) => alive && setApproved(r));
+    fetchProof("blocked", PROOF_TX.blocked).then((r) => alive && setBlocked(r));
     return () => {
       alive = false;
     };
@@ -87,9 +92,9 @@ export function LiveProof() {
             Same agent. One variable.
           </h2>
           <p className="mt-5 text-body text-text-secondary">
-            Two real sponsored actions from             agent <span className="text-text-primary font-medium">{truncateAddress("0x0000000000000000000000000000000000000000")}</span>,
-            identical but for the amount - 4 USDC vs 6 USDC against a 5 USDC per-tx cap. The difference lives entirely
-            in the events and the untouched balances.
+            Two real actions from agent <span className="text-text-primary font-medium">{truncateAddress(AGENT_ADDRESS)}</span>
+            on Arc testnet - 1.5 USDC approved and moved on-chain, then a 6 USDC attempt blocked against the same
+            5 USDC per-transaction cap. Live reads from the vault, not a simulation.
           </p>
         </div>
 

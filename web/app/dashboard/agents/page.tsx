@@ -16,7 +16,11 @@ function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name
         </div>
         {loading && !state ? (
           <div className="h-5 w-16 rounded-full bg-surface-hover animate-pulse" />
-        ) : state?.policy.active ? (
+        ) : !state ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-state-pending-light text-[12px] font-medium text-state-pending">
+            <span className="h-1.5 w-1.5 rounded-full bg-state-pending" /> Unavailable
+          </span>
+        ) : state.policy.active ? (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-state-approved-light text-[12px] font-medium text-state-approved">
             <span className="h-1.5 w-1.5 rounded-full bg-state-approved" /> Active
           </span>
@@ -48,7 +52,11 @@ function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name
           <span className="text-[12px] text-text-muted">Policy authorization</span>
           {loading && !state ? (
             <span className="text-[12px] text-text-muted">-</span>
-          ) : state?.policy.active ? (
+          ) : !state ? (
+            <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-pending">
+              <span className="h-1.5 w-1.5 rounded-full bg-state-pending" /> Unavailable
+            </span>
+          ) : state.policy.active ? (
             <span className="inline-flex items-center gap-1 text-[12px] font-medium text-state-approved">
               <span className="h-1.5 w-1.5 rounded-full bg-state-approved" /> Authorized
             </span>

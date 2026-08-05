@@ -9,6 +9,9 @@ export const CONTRACTS = {
 
 export const USDC_DECIMALS = 6;
 
+/** The demo agent (also the vault owner) deployed on Arc testnet. */
+export const AGENT_ADDRESS = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as Address;
+
 export const vaultAbi = parseAbi([
   // reads
   "function getPolicy(address agent) view returns ((uint128 maxPerTx,uint128 dailyCap,uint128 spentToday,uint64 lastResetTime,uint64 expiry,bool active))",

@@ -111,6 +111,75 @@ function LaunchCard({agentId, agentName}: {agentId: string; agentName: string}) 
   );
 }
 
+function DemoCard({agentId, agentName, onRun}: {agentId: string; agentName: string; onRun: (runId: string) => void}) {
+  const [status, setStatus] = useState<string>("idle");
+
+  const launch = async () => {
+    setStatus("running");
+    try {
+      const res = await fetch("/api/agent-runs/demo", {
+        method: "POST",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify({agentId}),
+      });
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => null);
+        setStatus("error");
+        throw new Error(err?.error ?? "Demo failed to start");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let runId: string | null = null;
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, {stream: true}).split("\n")) {
+          if (!line.trim()) continue;
+          try {
+            const msg = JSON.parse(line);
+            if (msg.type === "run") runId = msg.runId;
+            if (msg.type === "event" && msg.kind === "scenario") setStatus(`running: ${msg.summary}`);
+            if (msg.type === "done") {
+              setStatus("done");
+              if (runId) onRun(runId);
+            }
+          } catch {}
+        }
+      }
+    } catch (e) {
+      setStatus("error");
+      console.error(e);
+    }
+  };
+
+  const busy = status === "running";
+
+  return (
+    <div className="kpi-card p-5 mb-6" data-aos="fade-up">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-3">Launch Live Demo</div>
+      <div className="text-[12px] text-text-muted mb-4">
+        Runs 3 scripted scenarios through the real payment pipeline against <span className="font-mono text-text-primary">{agentName}</span>: an approved spend, a spend over the per-tx cap, and an un-allowlisted recipient. Fully on-chain, no LLM required.
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={launch}
+          disabled={busy}
+          className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {busy ? "Launching demo..." : "Launch demo"}
+        </button>
+        <div className="text-[12px] text-text-muted truncate">
+          {status === "idle" && "Ready. Demo spends 1.5 USDC from the live vault."}
+          {status === "running" && "Streaming live feed..."}
+          {status === "done" && "Done. Opening run feed."}
+          {status === "error" && "Failed to start demo. See console."}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RunDetail({runId, onBack}: {runId: string; onBack: () => void}) {
   const {run, events, loading} = useApiAgentRun(runId, 2000);
   const status = runStatusLabel(run?.status ?? "running");
@@ -195,12 +264,18 @@ export default function ControlPage() {
         <div className="space-y-6">
           {agentId ? (
             <div data-aos="fade-up">
-              <LaunchCard agentId={agentId} agentName={agentName} />
+              <DemoCard agentId={agentId} agentName={agentName} onRun={(runId) => setSelectedRun(runId)} />
             </div>
           ) : (
             <div className="kpi-card p-8 text-center" data-aos="fade-up">
               <div className="text-[13px] text-text-secondary">No agent configured</div>
               <div className="text-[12px] text-text-muted mt-1">Create an agent on the Agents page first.</div>
+            </div>
+          )}
+
+          {agentId && (
+            <div data-aos="fade-up">
+              <LaunchCard agentId={agentId} agentName={agentName} />
             </div>
           )}
 
