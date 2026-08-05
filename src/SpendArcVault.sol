@@ -34,6 +34,7 @@ contract SpendArcVault {
     mapping(address agent => mapping(address target => bool)) public allowedTarget;
     mapping(address agent => mapping(address token => bool)) public allowedToken;
     mapping(bytes32 actionId => bool used) public usedAction;
+    mapping(address executor => bool) public executors;
 
     event VaultFunded(address indexed from, uint256 amount);
     event PolicyCreated(address indexed agent, uint128 maxPerTx, uint128 dailyCap, uint64 expiry, bool active);
@@ -41,6 +42,7 @@ contract SpendArcVault {
     event TargetAllowlisted(address indexed agent, address indexed target, bool allowed);
     event TokenAllowlisted(address indexed agent, address indexed token, bool allowed);
     event AgentRevoked(address indexed agent);
+    event ExecutorSet(address indexed executor, bool enabled);
     event AgentActionApproved(
         address indexed agent, address indexed target, address indexed token, uint256 amount, bytes32 actionId
     );
@@ -57,6 +59,7 @@ contract SpendArcVault {
     );
 
     error NotOwner();
+    error NotAuthorized();
     error Reentrancy();
     error NativeTransferFailed();
 
@@ -119,35 +122,60 @@ contract SpendArcVault {
         emit AgentRevoked(agent);
     }
 
+    /// @notice Authorize a server executor to call `executeSpendFor` on behalf of agents.
+    function setExecutor(address executor, bool enabled) external onlyOwner {
+        executors[executor] = enabled;
+        emit ExecutorSet(executor, enabled);
+    }
+
     // ---------------------------------------------------------------------
     // Agent action
     // ---------------------------------------------------------------------
 
+    /// @notice Agent (or anyone holding the agent key) spends directly from its own policy.
     function executeSpend(address token, address target, uint256 amount, bytes calldata data, bytes32 actionId)
         external
         nonReentrant
         returns (bool approved)
     {
-        Policy storage p = policies[msg.sender];
+        return _executeSpend(msg.sender, token, target, amount, data, actionId);
+    }
+
+    /// @notice Owner or an authorized executor spends on behalf of an agent.
+    ///         The agent's own policy (not the caller's) is enforced.
+    function executeSpendFor(address agent, address token, address target, uint256 amount, bytes calldata data, bytes32 actionId)
+        external
+        nonReentrant
+        returns (bool approved)
+    {
+        if (msg.sender != owner && !executors[msg.sender]) revert NotAuthorized();
+        return _executeSpend(agent, token, target, amount, data, actionId);
+    }
+
+    function _executeSpend(address agent, address token, address target, uint256 amount, bytes calldata data, bytes32 actionId)
+        internal
+        returns (bool approved)
+    {
+        Policy storage p = policies[agent];
 
         if (!p.active) {
-            emit AgentActionBlocked(msg.sender, target, token, amount, "agent not active");
+            emit AgentActionBlocked(agent, target, token, amount, "agent not active");
             return false;
         }
         if (p.expiry != 0 && block.timestamp > p.expiry) {
-            emit AgentActionBlocked(msg.sender, target, token, amount, "policy expired");
+            emit AgentActionBlocked(agent, target, token, amount, "policy expired");
             return false;
         }
-        if (!allowedToken[msg.sender][token]) {
-            emit AgentActionBlocked(msg.sender, target, token, amount, "token not allowlisted");
+        if (!allowedToken[agent][token]) {
+            emit AgentActionBlocked(agent, target, token, amount, "token not allowlisted");
             return false;
         }
-        if (!allowedTarget[msg.sender][target]) {
-            emit AgentActionBlocked(msg.sender, target, token, amount, "target not allowlisted");
+        if (!allowedTarget[agent][target]) {
+            emit AgentActionBlocked(agent, target, token, amount, "target not allowlisted");
             return false;
         }
         if (amount > p.maxPerTx) {
-            emit AgentActionBlocked(msg.sender, target, token, amount, "exceeds maxPerTx");
+            emit AgentActionBlocked(agent, target, token, amount, "exceeds maxPerTx");
             return false;
         }
 
@@ -158,11 +186,11 @@ contract SpendArcVault {
             resetTime = uint64(block.timestamp);
         }
         if (spent + amount > p.dailyCap) {
-            emit AgentActionBlocked(msg.sender, target, token, amount, "exceeds dailyCap");
+            emit AgentActionBlocked(agent, target, token, amount, "exceeds dailyCap");
             return false;
         }
         if (usedAction[actionId]) {
-            emit AgentActionBlocked(msg.sender, target, token, amount, "duplicate action");
+            emit AgentActionBlocked(agent, target, token, amount, "duplicate action");
             return false;
         }
 
@@ -177,8 +205,8 @@ contract SpendArcVault {
             IERC20(token).safeTransfer(target, amount);
         }
 
-        emit AgentActionApproved(msg.sender, target, token, amount, actionId);
-        emit ReceiptIssued(msg.sender, target, token, amount, actionId, block.timestamp);
+        emit AgentActionApproved(agent, target, token, amount, actionId);
+        emit ReceiptIssued(agent, target, token, amount, actionId, block.timestamp);
         return true;
     }
 
