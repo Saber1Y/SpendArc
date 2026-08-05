@@ -9,7 +9,7 @@
  * live dashboard feed.
  *
  * Usage:
- *   node scripts/qa-agent.mjs --agent agent_c720ee6d [--qa ../QA.md] [--model opencode/deepseek-v4-flash-free] [--base http://localhost:3000] [--dry-run]
+ *   node scripts/qa-agent.mjs --agent agent_c720ee6d [--qa ../QA.md] [--model opencode/deepseek-v4-flash-free] [--base http://localhost:3000] [--api-key spend_...] [--dry-run]
  */
 
 import {spawnSync} from "node:child_process";
@@ -20,7 +20,7 @@ import {fileURLToPath} from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function parseArgs(argv) {
-  const args = {agent: null, qa: path.join(__dirname, "..", "..", "QA.md"), model: null, base: null, dryRun: false, mission: "Run QA scenarios"};
+  const args = {agent: null, qa: path.join(__dirname, "..", "..", "QA.md"), model: null, base: null, dryRun: false, mission: "Run QA scenarios", apiKey: null};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--agent") args.agent = argv[++i];
@@ -28,10 +28,12 @@ function parseArgs(argv) {
     else if (a === "--model") args.model = argv[++i];
     else if (a === "--base") args.base = argv[++i];
     else if (a === "--mission") args.mission = argv[++i];
+    else if (a === "--api-key") args.apiKey = argv[++i];
     else if (a === "--dry-run") args.dryRun = true;
   }
   args.base = args.base || process.env.AGENT_API_BASE || "http://localhost:3000";
   args.model = args.model || process.env.AGENT_MODEL || "opencode/deepseek-v4-flash-free";
+  args.apiKey = args.apiKey || process.env.AGENT_API_KEY || null;
   return args;
 }
 
@@ -50,10 +52,13 @@ function extractScenarios(mdPath) {
   return blocks;
 }
 
-async function api(base, pathname, {method = "GET", body} = {}) {
+async function api(base, pathname, {method = "GET", body, auth} = {}) {
+  const headers = {};
+  if (body) headers["content-type"] = "application/json";
+  if (auth) headers["authorization"] = `Bearer ${auth}`;
   const res = await fetch(`${base}${pathname}`, {
     method,
-    headers: body ? {"content-type": "application/json"} : {},
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -169,13 +174,26 @@ async function main() {
   printHeader();
   const scenarios = extractScenarios(args.qa);
   console.log(`[qa-agent] QA file: ${args.qa}`);
-  console.log(`[qa-agent] Agent: ${args.agent} | Model: ${args.model} | Base: ${args.base}${args.dryRun ? " (DRY RUN)" : ""}`);
+  console.log(`[qa-agent] Agent: ${args.agent} | Model: ${args.model} | Base: ${args.base}${args.apiKey ? " | Auth: Bearer api-key" : " | Auth: operator (no key)"}${args.dryRun ? " (DRY RUN)" : ""}`);
   if (scenarios.length === 0) {
     console.error("[qa-agent] No ```scenario blocks found.");
     process.exit(1);
   }
   console.log(`[qa-agent] Found ${scenarios.length} scenario(s).`);
   console.log("");
+
+  // With an api-key, introspect our own leash before spending (agent-facing auth).
+  if (args.apiKey) {
+    try {
+      const me = await api(args.base, "/api/agents/me", {auth: args.apiKey});
+      console.log(`[qa-agent] Leash: ${me.agent.name} | ${me.policy?.maxPerTxUsdc ?? "?"} USDC/tx, ${me.policy?.dailyCapUsdc ?? "?"} USDC/day, ${me.policy?.spentTodayUsdc ?? "?"} spent today`);
+      console.log(`[qa-agent] Allowlists: recipients=${(me.allowlists?.recipients ?? []).join(",") || "none"} tokens=${(me.allowlists?.tokens ?? []).join(",") || "none"}`);
+      console.log("");
+    } catch (e) {
+      console.error(`[qa-agent] Leash introspection failed (${e.message}); aborting - the api-key may be wrong.`);
+      process.exit(1);
+    }
+  }
 
   let run = null;
   if (!args.dryRun) {
@@ -271,6 +289,7 @@ async function main() {
     } else {
       actual = await api(args.base, "/api/payments/request", {
         method: "POST",
+        auth: args.apiKey,
         body: {
           agentId: args.agent,
           recipient: brainReq.recipient,
