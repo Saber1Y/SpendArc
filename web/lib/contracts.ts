@@ -21,6 +21,7 @@ export const vaultAbi = parseAbi([
   "function allowedToken(address agent,address token) view returns (bool)",
   "function usedAction(bytes32 actionId) view returns (bool)",
   "function owner() view returns (address)",
+  "function executors(address) view returns (bool)",
   "function NATIVE() view returns (address)",
   // owner writes
   "function setAgentPolicy(address agent,uint128 maxPerTx,uint128 dailyCap,uint64 expiry,bool active)",
@@ -28,6 +29,10 @@ export const vaultAbi = parseAbi([
   "function setAllowedToken(address agent,address token,bool allowed)",
   "function revokeAgent(address agent)",
   "function withdrawTokens(address token,address to,uint256 amount)",
+  "function setExecutor(address executor,bool enabled)",
+  // agent actions
+  "function executeSpend(address token,address target,uint256 amount,bytes data,bytes32 actionId) returns (bool)",
+  "function executeSpendFor(address agent,address token,address target,uint256 amount,bytes data,bytes32 actionId) returns (bool)",
   // events
   "event AgentActionApproved(address indexed agent,address indexed target,address indexed token,uint256 amount,bytes32 actionId)",
   "event AgentActionBlocked(address indexed agent,address indexed target,address indexed token,uint256 amount,string reason)",
@@ -38,6 +43,7 @@ export const vaultAbi = parseAbi([
   "event TargetAllowlisted(address indexed agent,address indexed target,bool allowed)",
   "event TokenAllowlisted(address indexed agent,address indexed token,bool allowed)",
   "event AgentRevoked(address indexed agent)",
+  "event ExecutorSet(address indexed executor,bool enabled)",
 ]);
 
 export const usdcAbi = parseAbi([

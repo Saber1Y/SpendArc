@@ -1,6 +1,6 @@
 import {keccak256, toBytes, type Address} from "viem";
 import {CONTRACTS} from "@/lib/contracts";
-import {evaluatePolicy, createTransaction, updateTransaction, incrementDailySpent, type DecisionCode} from "@/lib/db";
+import {evaluatePolicy, createTransaction, updateTransaction, incrementDailySpent, getAgent, type DecisionCode} from "@/lib/db";
 import {executeVaultSpend} from "@/lib/executor";
 
 export interface PaymentInput {
@@ -25,6 +25,19 @@ export async function processPayment(input: PaymentInput): Promise<PaymentOutcom
   const amount = Math.round(Number(input.amountUsdc) * 1_000_000);
   const recipientAddr = input.recipient;
   const actionId = keccak256(toBytes(`${input.agentId}:${recipientAddr}:${amount}:${Date.now()}:${Math.random()}`));
+
+  const agent = getAgent(input.agentId);
+  if (!agent) {
+    return {
+      status: "FAILED",
+      transactionId: "",
+      reason: "Agent not found",
+      amount: input.amountUsdc,
+      token: "USDC",
+      recipient: recipientAddr,
+    };
+  }
+  const agentAddress = agent.address as Address;
 
   const policyResult = evaluatePolicy(input.agentId, amount, recipientAddr, USDC);
 
@@ -54,7 +67,7 @@ export async function processPayment(input: PaymentInput): Promise<PaymentOutcom
   }
 
   try {
-    const result = await executeVaultSpend(CONTRACTS.vault, USDC, recipientAddr, BigInt(amount), actionId);
+    const result = await executeVaultSpend(CONTRACTS.vault, agentAddress, USDC, recipientAddr, BigInt(amount), actionId);
 
     if (!result.success) {
       updateTransaction(tx.id, {

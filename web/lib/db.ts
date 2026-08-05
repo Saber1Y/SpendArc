@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import path from "path";
-import {randomUUID} from "crypto";
+import {randomUUID, createHash} from "crypto";
 
 const DB_PATH = path.join(process.cwd(), "data", "spendarc.db");
 
@@ -99,6 +99,16 @@ function initSchema(db: Database.Database) {
       created_at INTEGER NOT NULL
     );
   `);
+
+  ensureColumn(db, "agents", "api_key_hash", "TEXT");
+  ensureColumn(db, "agents", "created_by", "TEXT");
+}
+
+function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {name: string}[];
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
 }
 
 export interface Agent {
@@ -108,6 +118,8 @@ export interface Agent {
   status: string;
   created_at: number;
   last_active_at: number | null;
+  api_key_hash: string | null;
+  created_by: string | null;
 }
 
 export interface Policy {
@@ -205,11 +217,66 @@ export function getAgent(id: string): Agent | undefined {
 export function createAgent(name: string, address: string): Agent {
   const id = `agent_${randomUUID().slice(0, 8)}`;
   const now = Math.floor(Date.now() / 1000);
-  const agent: Agent = {id, name, address, status: "active", created_at: now, last_active_at: now};
+  const agent: Agent = {id, name, address, status: "active", created_at: now, last_active_at: now, api_key_hash: null, created_by: null};
   getDb().prepare("INSERT INTO agents (id, name, address, status, created_at, last_active_at) VALUES (?, ?, ?, ?, ?, ?)").run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at);
   getDb().prepare("INSERT INTO policies (agent_id, max_per_tx, daily_cap, spent_today, expiry, active, last_reset_time) VALUES (?, 0, 0, 0, 0, 1, ?)").run(agent.id, now);
   addAuditLog("agent", agent.id, "agent_created", {name, address});
   return agent;
+}
+
+export function hashApiKey(apiKey: string): string {
+  return createHash("sha256").update(apiKey).digest("hex");
+}
+
+export interface UserAgentResult {
+  agent: Agent;
+  apiKey: string;
+}
+
+/**
+ * Create a user-owned agent: DB row + server policy mirrored to the on-chain
+ * defaults, plus a scoped API key (returned once, stored hashed). The on-chain
+ * registration is performed by the caller (owner signs setAgentPolicy etc.).
+ */
+export function createUserAgent(
+  name: string,
+  address: string,
+  createdBy: string,
+  maxPerTx: number,
+  dailyCap: number,
+): UserAgentResult {
+  const apiKey = `spend_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
+  const id = `agent_${randomUUID().slice(0, 8)}`;
+  const now = Math.floor(Date.now() / 1000);
+  const agent: Agent = {
+    id,
+    name,
+    address,
+    status: "active",
+    created_at: now,
+    last_active_at: now,
+    api_key_hash: hashApiKey(apiKey),
+    created_by: createdBy,
+  };
+  getDb()
+    .prepare(
+      "INSERT INTO agents (id, name, address, status, created_at, last_active_at, api_key_hash, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at, agent.api_key_hash, agent.created_by);
+  getDb()
+    .prepare("INSERT INTO policies (agent_id, max_per_tx, daily_cap, spent_today, expiry, active, last_reset_time) VALUES (?, ?, ?, 0, 0, 1, ?)")
+    .run(agent.id, maxPerTx, dailyCap, now);
+  addAuditLog("agent", agent.id, "agent_created_user", {name, address, created_by: createdBy, max_per_tx: maxPerTx, daily_cap: dailyCap});
+  return {agent, apiKey};
+}
+
+export function getAgentByApiKey(apiKey: string): Agent | undefined {
+  const hash = hashApiKey(apiKey);
+  return getDb().prepare("SELECT * FROM agents WHERE api_key_hash = ?").get(hash) as Agent | undefined;
+}
+
+export function getAgentByAddress(address: string): Agent | undefined {
+  return getDb().prepare("SELECT * FROM agents WHERE lower(address) = lower(?)").get(address) as Agent | undefined;
 }
 
 // ---- Policies ----
