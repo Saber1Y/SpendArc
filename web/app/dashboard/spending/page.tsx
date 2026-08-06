@@ -2,10 +2,11 @@
 
 import {useState} from "react";
 import {useApiTransactions, useApiAgents} from "@/lib/hooks";
-import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
+import {truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {TxChip} from "@/components/ui/Chip";
+import {TransactionTable} from "@/components/dashboard/TransactionTable";
 
 type Phase = "idle" | "submitting" | "polling" | "resolved" | "error";
 interface RunState {
@@ -15,8 +16,6 @@ interface RunState {
   error?: string;
   status?: string;
 }
-
-type Filter = "all" | "confirmed" | "blocked" | "failed";
 
 function RunAgentSection({agentId, refetch}: {agentId: string; refetch: () => void}) {
   const [run, setRun] = useState<RunState>({phase: "idle"});
@@ -163,102 +162,11 @@ function RunAgentSection({agentId, refetch}: {agentId: string; refetch: () => vo
   );
 }
 
-function TransactionTable({transactions, loading, filter}: {transactions: ReturnType<typeof useApiTransactions>["transactions"]; loading: boolean; filter: Filter}) {
-  const filtered = filter === "all"
-    ? transactions
-    : transactions.filter((t) => {
-        if (filter === "confirmed") return t.execution_status === "CONFIRMED";
-        if (filter === "blocked") return t.execution_status === "BLOCKED";
-        if (filter === "failed") return t.execution_status === "FAILED";
-        return true;
-      });
-
-  if (loading && filtered.length === 0) {
-    return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-            <div className="h-5 w-16 rounded-full bg-surface-hover" />
-            <div className="h-4 flex-1 bg-surface-hover rounded" />
-            <div className="h-4 w-20 bg-surface-hover rounded" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (filtered.length === 0) {
-    return (
-      <div className="py-12 text-center">
-        <div className="text-[13px] text-text-secondary">No transactions found</div>
-        <div className="text-[12px] text-text-muted mt-1">
-          {filter === "all" ? "Submit a spending request to see transactions here." : `No ${filter} transactions.`}
-        </div>
-      </div>
-    );
-  }
-
-  const statusBadge = (status: string) => {
-    if (status === "CONFIRMED") return <StateBadge kind="approved" />;
-    if (status === "BLOCKED") return <StateBadge kind="blocked" />;
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-state-pending-light text-[11px] font-medium text-state-pending">
-        <span className="h-1 w-1 rounded-full bg-state-pending" /> {status}
-      </span>
-    );
-  };
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-[13px]">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left py-3 px-4 text-[11px] font-medium text-text-muted uppercase tracking-wider">Status</th>
-            <th className="text-left py-3 px-4 text-[11px] font-medium text-text-muted uppercase tracking-wider">Amount</th>
-            <th className="text-left py-3 px-4 text-[11px] font-medium text-text-muted uppercase tracking-wider">Token</th>
-            <th className="text-left py-3 px-4 text-[11px] font-medium text-text-muted uppercase tracking-wider">Recipient</th>
-            <th className="text-left py-3 px-4 text-[11px] font-medium text-text-muted uppercase tracking-wider">Decision</th>
-            <th className="text-left py-3 px-4 text-[11px] font-medium text-text-muted uppercase tracking-wider">Tx Hash</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {filtered.map((tx) => (
-            <tr key={tx.id} className="hover:bg-surface-hover/50 transition-colors">
-              <td className="py-3 px-4">{statusBadge(tx.execution_status)}</td>
-              <td className="py-3 px-4 font-medium text-text-primary tabular-nums">{formatUsdc(BigInt(tx.amount))} USDC</td>
-              <td className="py-3 px-4 text-text-muted">USDC</td>
-              <td className="py-3 px-4 text-text-muted font-mono">{truncateAddress(tx.recipient as `0x${string}`)}</td>
-              <td className="py-3 px-4 text-text-muted">
-                {tx.decision_code !== "APPROVED" ? tx.decision_code : "Approved"}
-              </td>
-              <td className="py-3 px-4">
-                {tx.tx_hash ? (
-                  <TxChip href={explorerTx(tx.tx_hash as `0x${string}`)} label={truncateHash(tx.tx_hash as `0x${string}`)} />
-                ) : (
-                  <span className="text-text-muted">-</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 export default function SpendingPage() {
   const {agents} = useApiAgents();
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const agentId = selectedAgentId || agents[0]?.id || "";
   const {transactions, loading, refetch} = useApiTransactions(agentId);
-  const [filter, setFilter] = useState<Filter>("all");
-
-  const filters: {value: Filter; label: string; count: number}[] = [
-    {value: "all", label: "All", count: transactions.length},
-    {value: "confirmed", label: "Confirmed", count: transactions.filter((t) => t.execution_status === "CONFIRMED").length},
-    {value: "blocked", label: "Blocked", count: transactions.filter((t) => t.execution_status === "BLOCKED").length},
-    {value: "failed", label: "Failed", count: transactions.filter((t) => t.execution_status === "FAILED").length},
-  ];
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
@@ -293,27 +201,8 @@ export default function SpendingPage() {
           </div>
         )}
 
-        <div className="kpi-card" data-aos="fade-up" data-aos-delay="100">
-          <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Transaction History</div>
-            <div className="flex items-center gap-1">
-              {filters.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition motion-safe:active:scale-[0.98] ${
-                    filter === f.value
-                      ? "bg-accent/10 text-accent"
-                      : "text-text-muted hover:bg-surface-hover"
-                  }`}
-                >
-                  {f.label}
-                  <span className="ml-1 text-[11px]">({f.count})</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <TransactionTable transactions={transactions} loading={loading} filter={filter} />
+        <div data-aos="fade-up" data-aos-delay="100">
+          <TransactionTable transactions={transactions} loading={loading} />
         </div>
       </div>
     </div>

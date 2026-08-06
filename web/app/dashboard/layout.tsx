@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useActiveAddress } from "@/lib/usePrivyWallet";
+import { useRole } from "@/lib/useRole";
 import { truncateAddress } from "@/lib/format";
 import { OwnerConnectButton } from "@/components/dashboard/OwnerConnectButton";
 import { LoginGate } from "@/components/dashboard/LoginGate";
@@ -19,9 +21,14 @@ const NAV_ITEMS = [
   { href: "/dashboard/audit", label: "Audit Log", icon: "scroll" },
 ] as const;
 
+const USER_NAV_ITEMS = [{ href: "/dashboard/agents", label: "My Agent", icon: "bot" }] as const;
+
 const SECONDARY_ITEMS = [
   { href: "/dashboard/settings", label: "Settings", icon: "settings" },
 ] as const;
+
+/** Pages a booth visitor (non-owner) is allowed to see. Everything else redirects to My Agent. */
+const USER_ALLOWED = ["/dashboard/agents", "/dashboard/settings"];
 
 function NavIcon({ icon }: { icon: string }) {
   const cls = "w-4 h-4 shrink-0";
@@ -159,12 +166,26 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { ready, authenticated } = usePrivy();
   const { address, isConnected } = useActiveAddress();
+  const { isOwner, loading: roleLoading } = useRole();
 
   if (ready && !authenticated) {
     return <LoginGate />;
   }
+
+  const isUser = authenticated && !roleLoading && !isOwner;
+
+  // Visitors only ever see My Agent + Settings. Operator pages redirect.
+  useEffect(() => {
+    if (!isUser) return;
+    const allowed = USER_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (!allowed) router.replace("/dashboard/agents");
+  }, [isUser, pathname, router]);
+
+  const navItems = isOwner ? NAV_ITEMS : USER_NAV_ITEMS;
+  const subtitle = isOwner ? "Agent Spending Control Plane" : "Your spending agent";
 
   return (
     <div className="flex min-h-screen bg-surface-muted">
@@ -177,7 +198,7 @@ export default function DashboardLayout({
               SpendArc
             </span>
             <span className="block text-[10px] text-white/40 leading-none mt-0.5">
-              Agent Spending Control Plane
+              {subtitle}
             </span>
           </div>
         </div>
@@ -185,7 +206,7 @@ export default function DashboardLayout({
         {/* Primary nav */}
         <nav className="flex-1 overflow-y-auto sidebar-scrollbar px-3">
           <div className="space-y-0.5">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active =
                 item.href === "/dashboard"
                   ? pathname === "/dashboard"
@@ -235,7 +256,18 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="ml-[var(--sidebar-width)] flex-1">{children}</main>
+      <main className="ml-[var(--sidebar-width)] flex-1">
+        {roleLoading ? (
+          <div className="flex h-screen items-center justify-center">
+            <div className="flex items-center gap-2 text-[13px] text-text-muted">
+              <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+              Resolving role...
+            </div>
+          </div>
+        ) : (
+          children
+        )}
+      </main>
     </div>
   );
 }

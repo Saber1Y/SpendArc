@@ -151,6 +151,11 @@ export function useApiTransactions(agentId?: string) {
   }, [agentId]);
 
   useEffect(() => { void refetch(); }, [refetch]);
+  useEffect(() => {
+    const onFocus = () => void refetch();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refetch]);
 
   return {transactions, loading, error, refetch};
 }

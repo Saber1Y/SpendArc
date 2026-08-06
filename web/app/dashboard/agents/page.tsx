@@ -4,8 +4,9 @@ import {useState} from "react";
 import {usePrivy} from "@privy-io/react-auth";
 import {useApiAgents, useVaultState} from "@/lib/hooks";
 import {useActiveAddress} from "@/lib/usePrivyWallet";
-import {formatUsdc, truncateAddress} from "@/lib/format";
+import {formatUsdc, truncateAddress, isSameAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
+import {TransactionHistoryCard} from "@/components/dashboard/TransactionTable";
 import type {Address} from "viem";
 
 function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name: string; address: string}; state: ReturnType<typeof useVaultState>["data"]; loading: boolean; delay?: number}) {
@@ -125,7 +126,7 @@ function VaultSummary({state, loading}: {state: ReturnType<typeof useVaultState>
   );
 }
 
-function CreateUserAgentCard({onCreated}: {onCreated: () => void}) {
+function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasAgent?: boolean}) {
   const {login} = usePrivy();
   const {address, isConnected} = useActiveAddress();
   const [name, setName] = useState("");
@@ -261,6 +262,14 @@ Task: introspect your leash first, then make a test payment of 0.5 USDC to my wa
             </button>
           </div>
         </>
+      ) : hasAgent ? (
+        <div className="mt-4 rounded-lg border border-border bg-surface-muted/50 p-4">
+          <div className="text-[12px] font-medium text-text-primary mb-1">Agent registered for this wallet</div>
+          <div className="text-[11px] text-text-muted">
+            Your API key was shown once at registration and is stored only as a hash. If you lost it, create a new agent with a new wallet
+            address. Your agent, leash, and payment history are below.
+          </div>
+        </div>
       ) : (
         <div className="mt-4">
           {!isConnected || !address ? (
@@ -311,29 +320,71 @@ Task: introspect your leash first, then make a test payment of 0.5 USDC to my wa
 
 export default function AgentsPage() {
   const {agents, loading: agentsLoading, refetch: refetchAgents} = useApiAgents();
+  const {address, isConnected} = useActiveAddress();
+  const [selectedAgentId, setSelectedAgentId] = useState("");
   const firstAgent = agents[0];
-  const {data: state, loading: vaultLoading} = useVaultState(
-    (firstAgent?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as `0x${string}`
-  );
+  const myAgent = agents.find((a) => isSameAddress(a.address, address)) ?? null;
+  const stateAgent = (myAgent?.address ?? firstAgent?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as `0x${string}`;
+  const {data: state, loading: vaultLoading} = useVaultState(stateAgent);
   const loading = agentsLoading || vaultLoading;
+  const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
+  const historyAgentId = selectedAgentId || firstAgent?.id || "";
+
+  if (isOwner) {
+    return (
+      <div className="p-8 max-w-[1200px] mx-auto">
+        <div className="mb-6" data-aos="fade-up">
+          <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Agents</h1>
+          <p className="text-[13px] text-text-muted mt-1">Agent wallet management and authorization status</p>
+        </div>
+
+        <div className="space-y-6">
+          <CreateUserAgentCard onCreated={refetchAgents} />
+          {agents.length === 0 && !agentsLoading ? (
+            null
+          ) : (
+            agents.map((agent, i) => (
+              <AgentCard key={agent.id} agent={agent} state={state} loading={loading} delay={i * 100} />
+            ))
+          )}
+          {firstAgent && <VaultSummary state={state} loading={loading} />}
+          {agents.length > 0 && (
+            <>
+              <div className="kpi-card p-4 flex items-center gap-4" data-aos="fade-up">
+                <span className="text-[12px] text-text-muted">Transaction history for:</span>
+                <select
+                  value={historyAgentId}
+                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  className="rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent"
+                >
+                  {agents.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.id.slice(0, 12)}...)</option>
+                  ))}
+                </select>
+              </div>
+              {historyAgentId && <TransactionHistoryCard agentId={historyAgentId} />}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
       <div className="mb-6" data-aos="fade-up">
-        <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Agents</h1>
-        <p className="text-[13px] text-text-muted mt-1">Agent wallet management and authorization status</p>
+        <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">My Agent</h1>
+        <p className="text-[13px] text-text-muted mt-1">Your on-chain spending agent, its leash, and its payment history</p>
       </div>
 
       <div className="space-y-6">
-        <CreateUserAgentCard onCreated={refetchAgents} />
-        {agents.length === 0 && !agentsLoading ? (
-          null
-        ) : (
-          agents.map((agent, i) => (
-            <AgentCard key={agent.id} agent={agent} state={state} loading={loading} delay={i * 100} />
-          ))
+        <CreateUserAgentCard onCreated={refetchAgents} hasAgent={!!myAgent} />
+        {myAgent && (
+          <>
+            <AgentCard agent={myAgent} state={state} loading={loading} delay={100} />
+            <TransactionHistoryCard agentId={myAgent.id} />
+          </>
         )}
-        {firstAgent && <VaultSummary state={state} loading={loading} />}
       </div>
     </div>
   );

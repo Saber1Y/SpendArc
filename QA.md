@@ -131,20 +131,30 @@ Policy Health (5/tx, 20/day, remaining, expiry Never), Agent Health, and the Vau
 
 ### 2.3 Agents (/dashboard/agents) - the visitor flow
 
-The page has one create surface: **Create your agent**.
-The legacy operator "Create Agent" form was removed.
+The dashboard is role-split. The vault owner gets the full operator plane
+(Overview, Agent Control, Spending, Policies, Allowlist, Payments, Audit Log, Settings).
+A booth visitor (any other connected wallet) gets a minimal "My Agent" view and is
+redirected away from every operator page - they can only reach My Agent + Settings.
+
+**Visitor flow (My Agent):**
 
 1. Register with a wallet that is NOT already registered.
-   Existing wallets (owner, Booth AI Agent) return the `ADDRESS_REGISTERED` error state.
+   Existing wallets (owner, Booth AI Agent, QA Flow Validation) return the `ADDRESS_REGISTERED` error state.
    Use a new email login (Privy mints a fresh embedded wallet) or a new MetaMask account.
 2. **Connect wallet** -> the card swaps to show the connected address.
 3. Enter a name -> **Register agent** -> ~10s while 3 on-chain txs land.
 4. The **API key box** appears: the `spend_...` key, Copy button, "shown once" warning.
 5. The **Give this to your AI agent** box appears: a pre-filled prompt with the agent id,
    key, wallet address, leash (1/tx, 2/day, self-only), the two API endpoints, and a Copy prompt button.
-6. The new agent's **AgentCard** appears below with an Active badge.
+6. Below, the visitor sees ONLY their own **AgentCard** (address, network, vault balance, Active badge)
+   and their **Transaction History** (status, amount, recipient, purpose, decision code, explorer tx-hash link).
+   No other agents, no Vault Summary, no settlement details.
 
-Also on this page: the Vault Summary card (vault-wide USDC balance + remaining daily cap).
+**Owner flow (same page):** the legacy operator view - Create agent card, every agent's card,
+Vault Summary, and a per-agent Transaction History selector.
+
+A returning visitor whose agent is already registered sees an "Agent registered for this wallet"
+note (the key is gone by design - shown once) plus their AgentCard and history.
 
 ### 2.4 Control (/dashboard/control)
 
