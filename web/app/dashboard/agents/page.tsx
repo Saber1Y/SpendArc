@@ -132,14 +132,19 @@ function CreateUserAgentCard({onCreated}: {onCreated: () => void}) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [agentId, setAgentId] = useState("");
   const [registeredAddress, setRegisteredAddress] = useState("");
+  const [maxPerTxUsdc, setMaxPerTxUsdc] = useState(1);
+  const [dailyCapUsdc, setDailyCapUsdc] = useState(2);
   const [copied, setCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   const register = async () => {
     if (!address || !name.trim()) return;
     setSaving(true);
     setError("");
     setApiKey("");
+    setPromptCopied(false);
     try {
       const res = await fetch("/api/agents/user", {
         method: "POST",
@@ -151,7 +156,10 @@ function CreateUserAgentCard({onCreated}: {onCreated: () => void}) {
         setError(d.message ?? d.error ?? "Failed to register");
       } else {
         setApiKey(d.apiKey);
+        setAgentId(d.agent.id);
         setRegisteredAddress(d.agent.address);
+        setMaxPerTxUsdc((d.policy?.maxPerTx ?? 1_000_000) / 1_000_000);
+        setDailyCapUsdc((d.policy?.dailyCap ?? 2_000_000) / 1_000_000);
         setName("");
         onCreated();
       }
@@ -172,6 +180,37 @@ function CreateUserAgentCard({onCreated}: {onCreated: () => void}) {
     }
   };
 
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  const handoffPrompt = apiKey
+    ? `You are my autonomous spending agent on SpendArc.
+
+Agent id: ${agentId}
+API key: ${apiKey}
+My wallet: ${registeredAddress}
+
+Your leash (enforced on-chain by the SpendArc vault):
+- ${maxPerTxUsdc} USDC per transaction
+- ${dailyCapUsdc} USDC per day
+- payments only to ${registeredAddress} (my wallet)
+
+Work with the SpendArc API (base URL: ${baseUrl}):
+1. Read your leash: GET ${baseUrl}/api/agents/me with header "Authorization: Bearer ${apiKey}"
+2. Make a payment: POST ${baseUrl}/api/payments/request with JSON {"agentId": "${agentId}", "recipient": "${registeredAddress}", "amount": 0.5, "token": "USDC", "purpose": "agent test"} and the same Authorization header.
+
+Task: introspect your leash first, then make a test payment of 0.5 USDC to my wallet, and report the outcome (approved with tx hash, or the block reason).`
+    : "";
+
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(handoffPrompt);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 1500);
+    } catch {
+      setPromptCopied(false);
+    }
+  };
+
   return (
     <div className="kpi-card p-6" data-aos="fade-up">
       <div className="flex items-start justify-between mb-1">
@@ -187,22 +226,41 @@ function CreateUserAgentCard({onCreated}: {onCreated: () => void}) {
       </div>
 
       {apiKey ? (
-        <div className="mt-4 rounded-lg border border-accent/25 bg-accent-light/20 p-4">
-          <div className="text-[12px] font-medium text-text-primary mb-1">Your agent is live - API key (shown once)</div>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-md bg-surface px-3 py-2 text-[12px] font-mono text-text-primary break-all">{apiKey}</code>
+        <>
+          <div className="mt-4 rounded-lg border border-accent/25 bg-accent-light/20 p-4">
+            <div className="text-[12px] font-medium text-text-primary mb-1">Your agent is live - API key (shown once)</div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded-md bg-surface px-3 py-2 text-[12px] font-mono text-text-primary break-all">{apiKey}</code>
+              <button
+                onClick={copyKey}
+                className="shrink-0 rounded-md border border-border bg-white px-3 py-2 text-[12px] font-medium text-text-primary hover:border-accent"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="text-[11px] text-text-muted mt-2">
+              Save it now - it is stored only as a hash. Send it as <code className="text-text-primary">Authorization: Bearer &lt;key&gt;</code> when
+              requesting payments, and to <code className="text-text-primary">/api/agents/me</code> to read your leash.
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-border bg-white p-4">
+            <div className="text-[12px] font-medium text-text-primary mb-1">Give this to your AI agent</div>
+            <div className="text-[11px] text-text-muted mb-3">
+              Paste this into your AI agent (opencode, ChatGPT, Claude, etc.) - it contains your key, leash, and endpoints. The agent will
+              introspect its leash, then make a 0.5 USDC test payment to your wallet.
+            </div>
+            <pre className="rounded-md bg-surface-muted px-3 py-3 text-[11px] font-mono text-text-primary whitespace-pre-wrap break-words max-h-64 overflow-y-auto mb-3">
+              {handoffPrompt}
+            </pre>
             <button
-              onClick={copyKey}
-              className="shrink-0 rounded-md border border-border bg-white px-3 py-2 text-[12px] font-medium text-text-primary hover:border-accent"
+              onClick={copyPrompt}
+              className="rounded-md border border-border bg-white px-3 py-2 text-[12px] font-medium text-text-primary hover:border-accent"
             >
-              {copied ? "Copied" : "Copy"}
+              {promptCopied ? "Prompt copied" : "Copy prompt"}
             </button>
           </div>
-          <div className="text-[11px] text-text-muted mt-2">
-            Save it now - it is stored only as a hash. Send it as <code className="text-text-primary">Authorization: Bearer &lt;key&gt;</code> when
-            requesting payments, and to <code className="text-text-primary">/api/agents/me</code> to read your leash.
-          </div>
-        </div>
+        </>
       ) : (
         <div className="mt-4">
           {!isConnected || !address ? (
