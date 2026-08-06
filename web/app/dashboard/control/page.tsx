@@ -80,7 +80,8 @@ function EventRow({event}: {event: ApiAgentRunEvent}) {
 
 function LaunchCard({agentId, agentName}: {agentId: string; agentName: string}) {
   const [copied, setCopied] = useState(false);
-  const command = `node scripts/qa-agent.mjs --agent ${agentId}`;
+  const [apiKey, setApiKey] = useState("");
+  const command = `node scripts/qa-agent.mjs --agent ${agentId}${apiKey ? ` --qa scripts/qa-user-agent.md --api-key ${apiKey}` : ""}`;
 
   const copy = async () => {
     try {
@@ -96,16 +97,33 @@ function LaunchCard({agentId, agentName}: {agentId: string; agentName: string}) 
       <div className="text-[12px] text-text-muted mb-4">
         Runs the structured ```scenario blocks from QA.md against <span className="font-mono text-text-primary">{agentName}</span>. The opencode brain decides each request; SpendArc&apos;s policy engine approves or blocks it.
       </div>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 rounded-lg border border-border bg-surface-muted px-3 py-2 text-[12px] font-mono text-text-primary overflow-x-auto whitespace-nowrap">
-          {command}
-        </code>
-        <button
-          onClick={copy}
-          className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover transition-colors"
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <code className="flex-1 rounded-lg border border-border bg-surface-muted px-3 py-2 text-[12px] font-mono text-text-primary overflow-x-auto whitespace-nowrap">
+            {command}
+          </code>
+          <button
+            onClick={copy}
+            className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover transition-colors"
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value.trim())}
+            placeholder="Optional: paste the agent's spend_... API key to launch as the agent (Bearer auth)"
+            className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-mono text-text-primary outline-none focus:border-accent"
+            spellCheck={false}
+          />
+        </div>
+        {apiKey && (
+          <div className="text-[11px] text-text-muted">
+            With a key, the harness introspects its own leash via <code>/api/agents/me</code> and spends with{" "}
+            <code>Authorization: Bearer</code> - exactly how a booth visitor&apos;s AI agent operates.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -244,7 +262,8 @@ export default function ControlPage() {
   const agent = agents[0];
   const agentId = agent?.id ?? "";
   const agentName = agent?.name ?? "Test Agent";
-  const {runs} = useApiAgentRuns(agentId, 4000);
+  const {runs} = useApiAgentRuns(undefined, 4000);
+  const agentNameById = new Map(agents.map((a) => [a.id, a.name]));
   const [selectedRun, setSelectedRun] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -301,7 +320,9 @@ export default function ControlPage() {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="text-[13px] font-medium text-text-primary truncate">{r.mission}</div>
-                          <div className="text-[12px] text-text-muted mt-0.5 font-mono text-[11px]">{r.id}</div>
+                          <div className="text-[12px] text-text-muted mt-0.5 font-mono text-[11px]">
+                            {r.id} <span className="text-text-secondary">· {agentNameById.get(r.agent_id) ?? r.agent_id}</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
                           <span className="text-[12px] text-text-muted tabular-nums">
