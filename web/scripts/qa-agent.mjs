@@ -20,7 +20,7 @@ import {fileURLToPath} from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function parseArgs(argv) {
-  const args = {agent: null, qa: path.join(__dirname, "..", "..", "QA.md"), model: null, base: null, dryRun: false, mission: "Run QA scenarios", apiKey: null};
+  const args = {agent: null, qa: path.join(__dirname, "qa-demo-agent.md"), model: null, base: null, dryRun: false, mission: "Run QA scenarios", apiKey: null};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--agent") args.agent = argv[++i];
