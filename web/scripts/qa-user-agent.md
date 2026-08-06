@@ -7,7 +7,7 @@ authenticates as the agent, not the operator.
 ```scenario
 {
   "title": "Happy path - approved spend to self",
-  "request": {"recipient": "0x71a56f6c2AF6eA95fFBD5AF0cfd8775A53b4D0c5", "amount": 0.5, "purpose": "ai agent approved spend"},
+  "request": {"recipient": "__self__", "amount": 0.5, "purpose": "ai agent approved spend"},
   "expected": {"status": "APPROVED", "executionStatus": "CONFIRMED", "hasTx": true}
 }
 ```
@@ -15,7 +15,7 @@ authenticates as the agent, not the operator.
 ```scenario
 {
   "title": "Over per-tx limit",
-  "request": {"recipient": "0x71a56f6c2AF6eA95fFBD5AF0cfd8775A53b4D0c5", "amount": 1.5, "purpose": "ai agent over per-tx"},
+  "request": {"recipient": "__self__", "amount": 1.5, "purpose": "ai agent over per-tx"},
   "expected": {"status": "BLOCKED", "reason": "EXCEEDS_PER_TX_LIMIT"}
 }
 ```

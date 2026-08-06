@@ -183,9 +183,11 @@ async function main() {
   console.log("");
 
   // With an api-key, introspect our own leash before spending (agent-facing auth).
+  let selfAddress = null;
   if (args.apiKey) {
     try {
       const me = await api(args.base, "/api/agents/me", {auth: args.apiKey});
+      selfAddress = me.agent?.address;
       console.log(`[qa-agent] Leash: ${me.agent.name} | ${me.policy?.maxPerTxUsdc ?? "?"} USDC/tx, ${me.policy?.dailyCapUsdc ?? "?"} USDC/day, ${me.policy?.spentTodayUsdc ?? "?"} spent today`);
       console.log(`[qa-agent] Allowlists: recipients=${(me.allowlists?.recipients ?? []).join(",") || "none"} tokens=${(me.allowlists?.tokens ?? []).join(",") || "none"}`);
       console.log("");
@@ -258,16 +260,20 @@ async function main() {
     }
 
     // Brain decides the concrete request
-    let req = {...s.request, amount: Number(s.request.amount)};
+    const req = {...s.request, amount: Number(s.request.amount)};
+    const brainScenario = {title: s.title, expected: s.expected, request: req};
     const brainPrompt = `You are the autonomous QA agent for SpendArc, an on-chain agent spending control plane.\n` +
       `The SpendArc API will enforce a policy (per-tx cap, daily cap, recipient allowlist) and may approve or block the request.\n` +
       `Given this QA scenario, produce the exact payment request JSON.\n\n` +
-      `Scenario: ${JSON.stringify(s, null, 2)}\n\n` +
+      `Scenario: ${JSON.stringify(brainScenario, null, 2)}\n\n` +
       `Output ONLY a JSON object of the form:\n` +
       `{"recipient": "<checksum address>", "amount": <number in USDC>, "purpose": "<short purpose>", "reasoning": "<why this request should produce the expected result>"}\n` +
       `Use the recipient and amount from the scenario verbatim. Do not invent values.`;
     const decision = args.dryRun ? null : askBrain(args.model, brainPrompt);
-    const brainReq = buildRequestFromBrain(decision, s.request);
+    let brainReq = buildRequestFromBrain(decision, req);
+    if (selfAddress && (brainReq.recipient === "__self__" || brainReq.recipient === "SELF")) {
+      brainReq.recipient = selfAddress;
+    }
     if (decision) {
       console.log(`[qa-agent] Brain reasoning: ${decision.reasoning || "n/a"}`);
     } else if (!args.dryRun) {
