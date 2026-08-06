@@ -28,7 +28,7 @@ const SECONDARY_ITEMS = [
 ] as const;
 
 /** Pages a booth visitor (non-owner) is allowed to see. Everything else redirects to My Agent. */
-const USER_ALLOWED = ["/dashboard/agents", "/dashboard/settings"];
+const USER_ALLOWED = ["/dashboard/agents"];
 
 function NavIcon({ icon }: { icon: string }) {
   const cls = "w-4 h-4 shrink-0";
@@ -228,20 +228,24 @@ export default function DashboardLayout({
             })}
           </div>
 
-          <div className="my-4 border-t border-white/8" />
+          {isOwner ? (
+            <>
+              <div className="my-4 border-t border-white/8" />
 
-          <div className="space-y-0.5">
-            {SECONDARY_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-white/40 hover:bg-white/5 hover:text-white/60 transition motion-safe:active:scale-[0.98]"
-              >
-                <NavIcon icon={item.icon} />
-                {item.label}
-              </Link>
-            ))}
-          </div>
+              <div className="space-y-0.5">
+                {SECONDARY_ITEMS.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-white/40 hover:bg-white/5 hover:text-white/60 transition motion-safe:active:scale-[0.98]"
+                  >
+                    <NavIcon icon={item.icon} />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          ) : null}
         </nav>
 
         {/* Wallet & status */}

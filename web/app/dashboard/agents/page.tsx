@@ -7,6 +7,7 @@ import {useActiveAddress} from "@/lib/usePrivyWallet";
 import {formatUsdc, truncateAddress, isSameAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
 import {TransactionHistoryCard} from "@/components/dashboard/TransactionTable";
+import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
 import type {Address} from "viem";
 
 function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name: string; address: string}; state: ReturnType<typeof useVaultState>["data"]; loading: boolean; delay?: number}) {
@@ -379,8 +380,15 @@ export default function AgentsPage() {
 
       <div className="space-y-6">
         <CreateUserAgentCard onCreated={refetchAgents} hasAgent={!!myAgent} />
-        {myAgent && (
+        {myAgent && state && (
           <>
+            <div className="kpi-card p-6" data-aos="fade-up" data-aos-delay="50">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-4">Your spending leash</div>
+              <DailyCapMeter spent={state.policy.spentToday} cap={state.policy.dailyCap} remaining={state.remainingDailyCap} />
+              <div className="mt-4 pt-3 border-t border-border text-[11px] text-text-muted">
+                Enforced on-chain by the SpendArc vault. Your AI agent can request up to the per-transaction and daily limits below.
+              </div>
+            </div>
             <AgentCard agent={myAgent} state={state} loading={loading} delay={100} />
             <TransactionHistoryCard agentId={myAgent.id} />
           </>
