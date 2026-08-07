@@ -3,12 +3,13 @@ import {isAddress, type Address} from "viem";
 import {CONTRACTS} from "@/lib/contracts";
 import {createUserAgent, getAgentByAddress, addAllowlistEntry} from "@/lib/db";
 import {registerAgentOnChain} from "@/lib/executor";
+import {DEFAULT_MAX_PER_TX_USDC, DEFAULT_DAILY_CAP_USDC} from "@/lib/policyLimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_MAX_PER_TX = 1_000_000; // 1 USDC
-const DEFAULT_DAILY_CAP = 2_000_000; // 2 USDC
+const DEFAULT_MAX_PER_TX = DEFAULT_MAX_PER_TX_USDC * 1_000_000; // 5 USDC
+const DEFAULT_DAILY_CAP = DEFAULT_DAILY_CAP_USDC * 1_000_000; // 10 USDC
 
 /**
  * Register a user's own agent: the user's wallet address becomes an on-chain

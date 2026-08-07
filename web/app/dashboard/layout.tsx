@@ -21,14 +21,23 @@ const NAV_ITEMS = [
   { href: "/dashboard/audit", label: "Audit Log", icon: "scroll" },
 ] as const;
 
-const USER_NAV_ITEMS = [{ href: "/dashboard/agents", label: "My Agent", icon: "bot" }] as const;
+const USER_NAV_ITEMS = [
+  { href: "/dashboard", label: "Overview", icon: "grid" },
+  { href: "/dashboard/agents", label: "My Agent", icon: "bot" },
+  { href: "/dashboard/spending", label: "Spending", icon: "arrow-up-right" },
+  { href: "/dashboard/policies", label: "Policy", icon: "shield" },
+] as const;
+
+const USER_SECONDARY_ITEMS = [
+  { href: "/dashboard/settings", label: "Settings", icon: "settings" },
+] as const;
 
 const SECONDARY_ITEMS = [
   { href: "/dashboard/settings", label: "Settings", icon: "settings" },
 ] as const;
 
-/** Pages a booth visitor (non-owner) is allowed to see. Everything else redirects to My Agent. */
-const USER_ALLOWED = ["/dashboard/agents"];
+/** Pages a booth visitor (non-owner) is allowed to see. Everything else redirects to Overview. */
+const USER_ALLOWED = ["/dashboard", "/dashboard/agents", "/dashboard/spending", "/dashboard/policies", "/dashboard/settings"];
 
 function NavIcon({ icon }: { icon: string }) {
   const cls = "w-4 h-4 shrink-0";
@@ -177,14 +186,15 @@ export default function DashboardLayout({
 
   const isUser = authenticated && !roleLoading && !isOwner;
 
-  // Visitors only ever see My Agent + Settings. Operator pages redirect.
+  // Visitors only ever see their own pages. Operator pages redirect.
   useEffect(() => {
     if (!isUser) return;
     const allowed = USER_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
-    if (!allowed) router.replace("/dashboard/agents");
+    if (!allowed) router.replace("/dashboard");
   }, [isUser, pathname, router]);
 
   const navItems = isOwner ? NAV_ITEMS : USER_NAV_ITEMS;
+  const secondaryItems = isOwner ? SECONDARY_ITEMS : USER_SECONDARY_ITEMS;
   const subtitle = isOwner ? "Agent Spending Control Plane" : "Your spending agent";
 
   return (
@@ -228,12 +238,12 @@ export default function DashboardLayout({
             })}
           </div>
 
-          {isOwner ? (
+          {secondaryItems.length > 0 ? (
             <>
               <div className="my-4 border-t border-white/8" />
 
               <div className="space-y-0.5">
-                {SECONDARY_ITEMS.map((item) => (
+                {secondaryItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}

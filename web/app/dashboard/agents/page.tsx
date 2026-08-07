@@ -160,8 +160,8 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
         setApiKey(d.apiKey);
         setAgentId(d.agent.id);
         setRegisteredAddress(d.agent.address);
-        setMaxPerTxUsdc((d.policy?.maxPerTx ?? 1_000_000) / 1_000_000);
-        setDailyCapUsdc((d.policy?.dailyCap ?? 2_000_000) / 1_000_000);
+        setMaxPerTxUsdc((d.policy?.maxPerTx ?? 5_000_000) / 1_000_000);
+        setDailyCapUsdc((d.policy?.dailyCap ?? 10_000_000) / 1_000_000);
         setName("");
         onCreated();
       }
@@ -297,8 +297,8 @@ Task: introspect your leash first, then make a test payment of 0.5 USDC to my wa
                     className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent"
                   />
                   <div className="text-[11px] text-text-muted">
-                    Default leash: <span className="text-text-primary font-medium">1 USDC</span> per transaction,{" "}
-                    <span className="text-text-primary font-medium">2 USDC</span> per day, payments only to your own address. Gas for
+                    Default leash: <span className="text-text-primary font-medium">5 USDC</span> per transaction,{" "}
+                    <span className="text-text-primary font-medium">10 USDC</span> per day, payments only to your own address. Gas for
                     registration is paid by the vault owner.
                   </div>
                 </div>

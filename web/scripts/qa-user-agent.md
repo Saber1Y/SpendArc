@@ -1,6 +1,6 @@
 # SpendArc User-Agent QA Scenarios (AI agent holds the API key)
 
-Scenarios tailored to a freshly-registered user agent: 1 USDC/tx, 2 USDC/day,
+Scenarios tailored to a freshly-registered user agent: 5 USDC/tx, 10 USDC/day,
 payments only to the agent's own address. Run with `--api-key` so the harness
 authenticates as the agent, not the operator.
 
@@ -15,7 +15,7 @@ authenticates as the agent, not the operator.
 ```scenario
 {
   "title": "Over per-tx limit",
-  "request": {"recipient": "__self__", "amount": 1.5, "purpose": "ai agent over per-tx"},
+  "request": {"recipient": "__self__", "amount": 6, "purpose": "ai agent over per-tx"},
   "expected": {"status": "BLOCKED", "reason": "EXCEEDS_PER_TX_LIMIT"}
 }
 ```

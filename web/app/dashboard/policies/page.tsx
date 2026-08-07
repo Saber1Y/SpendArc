@@ -1,13 +1,16 @@
 "use client";
 
 import {useEffect, useState} from "react";
+import Link from "next/link";
 import type {Address} from "viem";
 import {CONTRACTS, vaultAbi} from "@/lib/contracts";
-import {useVaultState, useApiAgents} from "@/lib/hooks";
+import {useVaultState, useApiAgents, useApiAllowlist} from "@/lib/hooks";
 import {useActiveAddress} from "@/lib/usePrivyWallet";
+import {useRole, useMyAgent} from "@/lib/useRole";
 import {isSameAddress, formatUsdc, formatExpiry, truncateAddress} from "@/lib/format";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
 import {Field, TextInput, Toggle} from "@/components/ui/Input";
+import {MAX_PER_TX_USDC, MAX_DAILY_CAP_USDC} from "@/lib/policyLimits";
 
 function PolicyStatus({active, expiry}: {active: boolean; expiry: bigint}) {
   const exp = formatExpiry(expiry);
@@ -129,7 +132,7 @@ function EmergencyRevoke({agent, isOwner, refetch}: {agent: Address; isOwner: bo
   );
 }
 
-export default function PoliciesPage() {
+function OwnerPolicies() {
   const {agents} = useApiAgents();
   const agentAddress = (agents[0]?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
   const agentId = agents[0]?.id ?? "";
@@ -316,4 +319,232 @@ function ApiPolicySection({agentId}: {agentId: string}) {
       </div>
     </div>
   );
+}
+
+function UserPolicyEditor({agentId, state, refetch}: {
+  agentId: string;
+  state: NonNullable<ReturnType<typeof useVaultState>["data"]>;
+  refetch: () => void;
+}) {
+  const [maxPerTx, setMaxPerTx] = useState(formatUsdc(state.policy.maxPerTx));
+  const [dailyCap, setDailyCap] = useState(formatUsdc(state.policy.dailyCap));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const applyPreset = (mpt: string, dc: string) => {
+    setMaxPerTx(mpt);
+    setDailyCap(dc);
+    setError("");
+    setSuccess("");
+  };
+
+  const save = async () => {
+    const mpt = parseFloat(maxPerTx);
+    const dc = parseFloat(dailyCap);
+    if (!isFinite(mpt) || !isFinite(dc) || mpt <= 0 || dc <= 0) {
+      setError("Enter positive numbers for both limits.");
+      return;
+    }
+    if (mpt > MAX_PER_TX_USDC || dc > MAX_DAILY_CAP_USDC) {
+      setError(`Limits are capped at ${MAX_PER_TX_USDC} USDC/tx and ${MAX_DAILY_CAP_USDC} USDC/day.`);
+      return;
+    }
+    if (mpt > dc) {
+      setError("Per-tx cap cannot exceed the daily cap.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/policies/${agentId}/update`, {
+        method: "POST",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify({maxPerTxUsdc: mpt, dailyCapUsdc: dc}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message ?? data.error ?? "Failed to update leash");
+        return;
+      }
+      setSuccess(`Leash updated on-chain${data.txHash ? " - tx confirmed" : ""}. Your AI agent's requests are now bound by the new limits.`);
+      refetch();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const presets = [
+    {label: "Standard", mpt: "5", dc: "10"},
+    {label: "Generous", mpt: "10", dc: "25"},
+  ];
+
+  return (
+    <div className="space-y-4 p-4 rounded-lg border border-accent/20 bg-accent-light/30">
+      <div className="text-[12px] font-medium text-text-primary mb-1">Adjust your leash</div>
+      <div className="text-[11px] text-text-muted">
+        Enforced on-chain by the SpendArc vault. Ceilings: {MAX_PER_TX_USDC} USDC/tx, {MAX_DAILY_CAP_USDC} USDC/day.
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {presets.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => applyPreset(p.mpt, p.dc)}
+            className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              maxPerTx === p.mpt && dailyCap === p.dc
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-text-secondary hover:border-accent hover:text-text-primary"
+            }`}
+          >
+            {p.label}: {p.mpt}/{p.dc} USDC
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field label="Per-tx cap (USDC)">
+          <TextInput inputMode="decimal" value={maxPerTx} onChange={(e) => setMaxPerTx(e.target.value)} />
+        </Field>
+        <Field label="Daily cap (USDC)">
+          <TextInput inputMode="decimal" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} />
+        </Field>
+      </div>
+
+      {error && <div className="text-[12px] text-state-blocked">{error}</div>}
+      {success && <div className="text-[12px] text-state-approved">{success}</div>}
+
+      <div className="flex items-center gap-3">
+        <button onClick={save} disabled={saving} className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-50">
+          {saving ? "Updating on-chain..." : "Save leash"}
+        </button>
+      </div>
+      {saving && <div className="text-[12px] text-text-muted">Owner key signs the vault policy update...</div>}
+    </div>
+  );
+}
+
+function UserPolicyPage() {
+  const {agent, loading} = useMyAgent();
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-2 text-[13px] text-text-muted">
+          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+          Loading your policy...
+        </div>
+      </div>
+    );
+  }
+
+  if (!agent) {
+    return (
+      <div className="p-8 max-w-[1200px] mx-auto">
+        <div className="kpi-card p-12 text-center" data-aos="fade-up">
+          <div className="text-[15px] font-semibold text-text-primary mb-1">No agent registered</div>
+          <div className="text-[13px] text-text-muted mb-6">
+            Register this wallet as an agent to get a vault-enforced spending leash.
+          </div>
+          <Link href="/dashboard/agents" className="inline-block rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:bg-accent-hover">
+            Register your agent
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return <UserPolicyWithAgent agentId={agent.id} agentAddress={agent.address as Address} />;
+}
+
+function UserPolicyWithAgent({agentId, agentAddress}: {agentId: string; agentAddress: Address}) {
+  const {data: state, loading, error, refetch} = useVaultState(agentAddress);
+  const {recipients} = useApiAllowlist(agentId);
+
+  return (
+    <div className="p-8 max-w-[900px] mx-auto">
+      <div className="mb-6" data-aos="fade-up">
+        <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Policy</h1>
+        <p className="text-[13px] text-text-muted mt-1">Your agent&apos;s spending leash, enforced on-chain by the SpendArc vault</p>
+      </div>
+
+      <div className="kpi-card p-6" data-aos="fade-up">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-4">On-Chain Spending Policy</div>
+        {loading && !state ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-16 rounded-lg bg-surface-hover animate-pulse" />
+            ))}
+          </div>
+        ) : error && !state ? (
+          <div className="text-[12px] text-state-blocked">
+            Failed to load policy
+            <button onClick={refetch} className="ml-3 underline hover:no-underline">Retry</button>
+            <div className="text-[11px] text-state-blocked/70 mt-1 break-all">{error.message}</div>
+          </div>
+        ) : state ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 rounded-lg bg-surface-muted">
+                <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Per-Tx Limit</div>
+                <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.maxPerTx)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
+              </div>
+              <div className="p-4 rounded-lg bg-surface-muted">
+                <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Daily Limit</div>
+                <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.dailyCap)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
+              </div>
+              <div className="p-4 rounded-lg bg-surface-muted">
+                <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Spent Today</div>
+                <div className="text-[18px] font-semibold text-text-primary tabular-nums">{formatUsdc(state.policy.spentToday)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
+              </div>
+              <div className="p-4 rounded-lg bg-surface-muted">
+                <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Remaining</div>
+                <div className="text-[18px] font-semibold text-state-approved tabular-nums">{formatUsdc(state.remainingDailyCap)} <span className="text-[12px] text-text-muted font-normal">USDC</span></div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <UserPolicyEditor agentId={agentId} state={state} refetch={refetch} />
+
+              <div className="p-4 rounded-lg border border-border">
+                <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">Recipients allowed</div>
+                {recipients.length === 0 ? (
+                  <div className="text-[12px] text-text-muted">None - payments are blocked.</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {recipients.map((r) => (
+                      <li key={r.id} className="flex items-center gap-2 text-[12px] font-mono text-text-primary">
+                        {truncateAddress(r.address as `0x${string}`)}
+                        <span className="text-[11px] text-text-muted">{r.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export default function PoliciesPage() {
+  const {isOwner, loading} = useRole();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center gap-2 text-[13px] text-text-muted">
+          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+          Resolving role...
+        </div>
+      </div>
+    );
+  }
+
+  return isOwner ? <OwnerPolicies /> : <UserPolicyPage />;
 }

@@ -1,12 +1,14 @@
 "use client";
 
 import {useState} from "react";
+import Link from "next/link";
 import {useApiTransactions, useApiAgents} from "@/lib/hooks";
 import {truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {TxChip} from "@/components/ui/Chip";
 import {TransactionTable} from "@/components/dashboard/TransactionTable";
+import {useRole, useMyAgent} from "@/lib/useRole";
 
 type Phase = "idle" | "submitting" | "polling" | "resolved" | "error";
 interface RunState {
@@ -162,7 +164,7 @@ function RunAgentSection({agentId, refetch}: {agentId: string; refetch: () => vo
   );
 }
 
-export default function SpendingPage() {
+function OwnerSpending() {
   const {agents} = useApiAgents();
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const agentId = selectedAgentId || agents[0]?.id || "";
@@ -207,4 +209,77 @@ export default function SpendingPage() {
       </div>
     </div>
   );
+}
+
+function UserSpendingWithAgent({agentId}: {agentId: string}) {
+  const {transactions, loading, refetch} = useApiTransactions(agentId);
+
+  return (
+    <div className="p-8 max-w-[1200px] mx-auto">
+      <div className="mb-6" data-aos="fade-up">
+        <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Spending</h1>
+        <p className="text-[13px] text-text-muted mt-1">Request spending for your agent and review its decisions</p>
+      </div>
+
+      <div className="space-y-6">
+        <div data-aos="fade-up">
+          <RunAgentSection agentId={agentId} refetch={refetch} />
+        </div>
+
+        <div data-aos="fade-up" data-aos-delay="100">
+          <TransactionTable transactions={transactions} loading={loading} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserSpending() {
+  const {agent, loading} = useMyAgent();
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-2 text-[13px] text-text-muted">
+          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+          Loading your agent...
+        </div>
+      </div>
+    );
+  }
+
+  if (!agent) {
+    return (
+      <div className="p-8 max-w-[1200px] mx-auto">
+        <div className="kpi-card p-12 text-center" data-aos="fade-up">
+          <div className="text-[15px] font-semibold text-text-primary mb-1">No agent registered</div>
+          <div className="text-[13px] text-text-muted mb-6">
+            Register this wallet as an agent first - then you can request spending for it.
+          </div>
+          <Link href="/dashboard/agents" className="inline-block rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:bg-accent-hover">
+            Register your agent
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return <UserSpendingWithAgent agentId={agent.id} />;
+}
+
+export default function SpendingPage() {
+  const {isOwner, loading} = useRole();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center gap-2 text-[13px] text-text-muted">
+          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+          Resolving role...
+        </div>
+      </div>
+    );
+  }
+
+  return isOwner ? <OwnerSpending /> : <UserSpending />;
 }

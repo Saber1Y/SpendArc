@@ -1,7 +1,7 @@
 "use client";
 
 import {useActiveAddress} from "./usePrivyWallet";
-import {useVaultState} from "./hooks";
+import {useVaultState, useApiAgents} from "./hooks";
 import {isSameAddress, type Address} from "./format";
 
 /** Demo agent (also the vault owner) - used as the read anchor for owner() + policy reads. */
@@ -16,4 +16,12 @@ export function useRole() {
   const {data: state, loading} = useVaultState(ROLE_ANCHOR);
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
   return {isOwner, isConnected, address, loading};
+}
+
+/** The registered agent belonging to the connected wallet (visitor scope). */
+export function useMyAgent() {
+  const {address, isConnected} = useActiveAddress();
+  const {agents, loading} = useApiAgents();
+  const agent = isConnected && address ? (agents.find((a) => isSameAddress(a.address, address)) ?? null) : null;
+  return {agent, loading, isConnected, address};
 }

@@ -85,7 +85,7 @@ Expected: policy `(1e6, 2e6, 0, ..., 0, true)`, `allowedTarget` true, `allowedTo
 curl -s http://localhost:3000/api/agents/me -H "Authorization: Bearer spend_<KEY>"
 ```
 
-Expected: `{agent, policy: {maxPerTxUsdc: 1, dailyCapUsdc: 2, spentTodayUsdc: 0, active: true}, allowlists: {recipients: ["0x<NEW>"], tokens: [USDC]}}`.
+Expected: `{agent, policy: {maxPerTxUsdc: 5, dailyCapUsdc: 10, spentTodayUsdc: 0, active: true}, allowlists: {recipients: ["0x<NEW>"], tokens: [USDC]}}`.
 No header or a bad key returns `401`.
 
 ### 1c. Spend with Bearer auth
@@ -101,7 +101,7 @@ Re-check `getPolicy` - `spentToday` = 500000.
 
 Blocked paths (all return `BLOCKED` with a reason, no tx, no chain effect):
 
-- `amount: "3"` -> `EXCEEDS_PER_TX_LIMIT` (1 USDC per-tx cap)
+- `amount: "6"` -> `EXCEEDS_PER_TX_LIMIT` (5 USDC per-tx cap)
 - `recipient: "0x1111...1111"` -> `RECIPIENT_NOT_ALLOWLISTED`
 
 Auth negatives:
@@ -133,8 +133,11 @@ Policy Health (5/tx, 20/day, remaining, expiry Never), Agent Health, and the Vau
 
 The dashboard is role-split. The vault owner gets the full operator plane
 (Overview, Agent Control, Spending, Policies, Allowlist, Payments, Audit Log, Settings).
-A booth visitor (any other connected wallet) gets a single "My Agent" page and is
-redirected away from every other route - Settings is operator-only too.
+A booth visitor (any other connected wallet) gets a user workspace:
+**Overview** (their leash + decisions), **My Agent** (register + API key + handoff prompt),
+**Spending** (request + history), **Policy** (bounded self-service leash edit),
+**Settings** (network, wallet, agent info). Operator pages and vault/operator settings are
+invisible and redirect to Overview.
 
 **Visitor flow (My Agent):**
 
@@ -145,11 +148,17 @@ redirected away from every other route - Settings is operator-only too.
 3. Enter a name -> **Register agent** -> ~10s while 3 on-chain txs land.
 4. The **API key box** appears: the `spend_...` key, Copy button, "shown once" warning.
 5. The **Give this to your AI agent** box appears: a pre-filled prompt with the agent id,
-   key, wallet address, leash (1/tx, 2/day, self-only), the two API endpoints, and a Copy prompt button.
+   key, wallet address, leash (5/tx, 10/day, self-only), the two API endpoints, and a Copy prompt button.
 6. Below, the visitor sees ONLY their own **AgentCard** (address, network, vault balance, Active badge),
    a **Spending leash** meter (spent today / daily cap / remaining today), and their
    **Transaction History** (status, amount, recipient, purpose, decision code, explorer tx-hash link).
-   No other agents, no Vault Summary, no settlement details, no Settings.
+   No other agents, no Vault Summary, no settlement details.
+
+**Visitor Policy self-service:** `/api/policies/{agentId}/update` clamps against ceilings
+(10 USDC/tx, 25 USDC/day), signs `setAgentPolicy` with the server owner key, then mirrors
+the same values into the DB - both fences stay in sync. Verified live: raised the
+`agent_aa7ed870` visitor agent 1/2 -> 5/10 (tx `0x5076d3...`); on-chain `getPolicy`
+matches the DB.
 
 **Owner flow (same page):** the legacy operator view - Create agent card, every agent's card,
 Vault Summary, and a per-agent Transaction History selector.
@@ -179,8 +188,10 @@ Manual operator spend form (no API key - operator path).
 
 ### 2.6 Policies (/dashboard/policies)
 
-On-Chain Policy card for the selected agent (5/tx, 20/day for Test Agent; 1/2 for user agents).
+On-Chain Policy card for the selected agent (5/tx, 20/day for Test Agent; 5/10 default for new user agents).
 Owner-only edit goes through MetaMask and emits `PolicyUpdated` on-chain.
+User agents self-edit their leash on /dashboard/policies via the owner-signed update route
+(clamped to 10/tx, 25/day).
 Server-Side Policy card is DB-only (instant, no wallet).
 Fence check: server allows 3.5 but on-chain cap rejects -> FAILED "reverted" (the on-chain fence is the backstop).
 
@@ -227,10 +238,10 @@ node scripts/qa-agent.mjs --agent agent_<ID> \
 
 The harness introspects the leash via `/api/agents/me` with the Bearer key,
 then the opencode brain builds each request.
-Expected output: `Leash: ... 1 USDC/tx, 2 USDC/day` then 3 scenarios -> 3 passed, 0 failed:
+Expected output: `Leash: ... 5 USDC/tx, 10 USDC/day` then 3 scenarios -> 3 passed, 0 failed:
 
 1. Approved 0.5 USDC to self -> `APPROVED` + `CONFIRMED` + tx hash
-2. 1.5 USDC -> `BLOCKED EXCEEDS_PER_TX_LIMIT`
+2. 6 USDC -> `BLOCKED EXCEEDS_PER_TX_LIMIT`
 3. 0.5 USDC to `0x1111...` -> `BLOCKED RECIPIENT_NOT_ALLOWLISTED`
 
 The run streams to `/dashboard/control` with `passed ✓ / failed ✗`.

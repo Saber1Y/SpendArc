@@ -1,17 +1,19 @@
 "use client";
 
 import {useState} from "react";
+import Link from "next/link";
 import {useVaultState, useApiTransactions, useApiAgents, useApiAllowlist, txToAction} from "@/lib/hooks";
 import {isSameAddress, formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {CONTRACTS, vaultAbi, usdcAbi} from "@/lib/contracts";
 import {arcChain} from "@/lib/arc";
 import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
+import {useRole, useMyAgent} from "@/lib/useRole";
 import {waitForReceiptRaw} from "@/lib/txwait";
 import {TxChip} from "@/components/ui/Chip";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
-import {parseUnits} from "viem";
+import {parseUnits, type Address} from "viem";
 
 function KPICard({label, value, sub, accent, delay = 0}: {label: string; value: string | number; sub?: string; accent?: boolean; delay?: number}) {
   return (
@@ -325,7 +327,7 @@ function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState
   );
 }
 
-export default function DashboardPage() {
+function OwnerOverview() {
   const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
   const {data: state, loading, error, refetch} = useVaultState(agent);
   const {transactions, loading: txLoading} = useApiTransactions();
@@ -444,4 +446,159 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+function UserAgentDashboard({agentId, agentAddress}: {agentId: string; agentAddress: Address}) {
+  const {data: state, loading, error, refetch} = useVaultState(agentAddress);
+  const {transactions, loading: txLoading} = useApiTransactions(agentId);
+  const {recipients, tokens} = useApiAllowlist(agentId);
+
+  const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;
+  const blockedCount = transactions.filter((t) => t.execution_status === "BLOCKED").length;
+  const spentToday = state?.policy.spentToday ?? 0n;
+
+  return (
+    <div className="p-8 max-w-[1200px] mx-auto">
+      <div className="mb-8" data-aos="fade-up">
+        <h1 className="text-[24px] font-semibold text-text-primary tracking-tight">Your Spending Agent</h1>
+        <p className="text-[13px] text-text-muted mt-1">
+          The leash the vault enforces for your agent, its spending decisions, and your remaining allowance.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <KPICard label="Spent Today" value={state ? `$${formatUsdc(spentToday)}` : "-"} sub="USDC" />
+        <KPICard label="Remaining Daily" value={state ? `$${formatUsdc(state.remainingDailyCap)}` : "-"} sub="USDC" delay={60} />
+        <KPICard label="Approved" value={confirmedCount} sub="payments" delay={120} />
+        <KPICard label="Blocked" value={blockedCount} sub="requests" delay={180} />
+        <KPICard
+          label="Agent Status"
+          value={loading ? "..." : !state ? "Unavailable" : state.policy.active ? "Active" : "Revoked"}
+          sub={loading ? "Loading policy" : !state ? "On-chain read failed" : state.policy.active ? "Policy enforced" : "Needs attention"}
+          delay={240}
+        />
+      </div>
+
+      {error && !state && (
+        <div className="flex items-center justify-between rounded-lg border border-state-pending/30 bg-state-pending-light px-4 py-3 mb-8" data-aos="fade-up">
+          <div className="text-[12px] text-state-pending">
+            Could not read on-chain vault state. This is a network issue, not a policy revocation.
+            <span className="block text-[11px] text-state-pending/70 mt-0.5 break-all font-mono">{error.message}</span>
+          </div>
+          <button
+            onClick={() => void refetch()}
+            className="ml-4 shrink-0 rounded-lg border border-state-pending/40 px-3 py-1.5 text-[12px] font-medium text-state-pending hover:bg-state-pending/10 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="kpi-card p-5" data-aos="fade-up">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Spending Decisions</div>
+              <Link href="/dashboard/spending" className="text-[12px] text-accent hover:underline">
+                Request spending
+              </Link>
+            </div>
+            <RecentActivity transactions={transactions} loading={txLoading} />
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div data-aos="fade-up" data-aos-delay="120">
+            <PolicyHealthCard state={state} recipientCount={recipients.length} tokenCount={tokens.length} />
+          </div>
+          <div data-aos="fade-up" data-aos-delay="180">
+            <AgentHealthCard state={state} loading={loading} agent={agentAddress} />
+          </div>
+          <div data-aos="fade-up" data-aos-delay="240">
+            <div className="kpi-card p-5">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-text-secondary mb-4">Quick Actions</div>
+              <div className="space-y-2">
+                <Link
+                  href="/dashboard/policies"
+                  className="block rounded-lg border border-border px-4 py-2.5 text-[13px] font-medium text-text-primary hover:border-accent hover:bg-surface-hover transition-colors"
+                >
+                  Adjust your leash
+                </Link>
+                <Link
+                  href="/dashboard/agents"
+                  className="block rounded-lg border border-border px-4 py-2.5 text-[13px] font-medium text-text-primary hover:border-accent hover:bg-surface-hover transition-colors"
+                >
+                  View agent + API key
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserOverview() {
+  const {agent, loading, isConnected, address} = useMyAgent();
+
+  if (!isConnected || !address) {
+    return (
+      <div className="p-8 max-w-[1200px] mx-auto">
+        <div className="kpi-card p-12 text-center" data-aos="fade-up">
+          <div className="text-[15px] font-semibold text-text-primary mb-1">Connect your wallet</div>
+          <div className="text-[13px] text-text-muted mb-6">Connect the wallet you registered as an agent to see your leash and activity.</div>
+          <Link href="/dashboard/agents" className="inline-block rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:bg-accent-hover">
+            Go to My Agent
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-2 text-[13px] text-text-muted">
+          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+          Loading your agent...
+        </div>
+      </div>
+    );
+  }
+
+  if (!agent) {
+    return (
+      <div className="p-8 max-w-[1200px] mx-auto">
+        <div className="kpi-card p-12 text-center" data-aos="fade-up">
+          <div className="text-[15px] font-semibold text-text-primary mb-1">No agent registered</div>
+          <div className="text-[13px] text-text-muted mb-6">
+            Register this wallet as an on-chain vault agent to get a scoped API key for your AI agent.
+          </div>
+          <Link href="/dashboard/agents" className="inline-block rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:bg-accent-hover">
+            Register your agent
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return <UserAgentDashboard agentId={agent.id} agentAddress={agent.address as Address} />;
+}
+
+export default function DashboardPage() {
+  const {isOwner, loading} = useRole();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center gap-2 text-[13px] text-text-muted">
+          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+          Resolving role...
+        </div>
+      </div>
+    );
+  }
+
+  return isOwner ? <OwnerOverview /> : <UserOverview />;
 }

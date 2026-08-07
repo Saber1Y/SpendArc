@@ -98,6 +98,33 @@ export async function executeVaultSpend(
   return sendAndWait(vaultAddress, calldata);
 }
 
+/**
+ * Owner-only on-chain policy update: adjust an agent's maxPerTx/dailyCap.
+ * The server holds the owner key, so visitor self-service can update the
+ * vault-enforced leash without the visitor signing anything.
+ */
+export async function setAgentPolicyOnChain(vaultAddress: Address, agent: Address, maxPerTx: bigint, dailyCap: bigint, expiry = 0n, active = true): Promise<ExecuteResult> {
+  const owner = getSigner("VAULT_OWNER_PRIVATE_KEY");
+  const walletClient = createWalletClient({account: owner, transport: http(ARC_RPC_URL)});
+  const publicClient = createPublicClient({transport: http(ARC_RPC_URL)});
+
+  const calldata = encodeFunctionData({abi: VAULT_ABI, functionName: "setAgentPolicy", args: [agent, maxPerTx, dailyCap, expiry, active]});
+  try {
+    const txHash = await walletClient.sendTransaction({to: vaultAddress, data: calldata, chain: undefined});
+    const receipt = await publicClient.waitForTransactionReceipt({hash: txHash, timeout: 60_000});
+    if (receipt.status !== "success") {
+      return {success: false, txHash, error: "setAgentPolicy reverted on-chain"};
+    }
+    return {success: true, txHash};
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("reverted") || msg.includes("revert")) {
+      return {success: false, error: `Vault rejected: ${msg.slice(0, 200)}`};
+    }
+    return {success: false, error: msg.slice(0, 200)};
+  }
+}
+
 /** Owner-only on-chain registration: create/set an agent's policy + allowlists. */
 export async function registerAgentOnChain(vaultAddress: Address, agent: Address, maxPerTx: bigint, dailyCap: bigint, token: Address, target: Address) {
   const owner = getSigner("VAULT_OWNER_PRIVATE_KEY");
