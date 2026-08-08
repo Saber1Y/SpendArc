@@ -46,6 +46,8 @@ function initSchema(db: Database.Database) {
       entry_type TEXT NOT NULL CHECK(entry_type IN ('recipient','token')),
       address TEXT NOT NULL,
       label TEXT DEFAULT '',
+      max_per_tx_usdc INTEGER,
+      daily_cap_usdc INTEGER,
       active INTEGER NOT NULL DEFAULT 1
     );
 
@@ -113,6 +115,8 @@ function initSchema(db: Database.Database) {
   ensureColumn(db, "agents", "api_key_hash", "TEXT");
   ensureColumn(db, "agents", "created_by", "TEXT");
   ensureColumn(db, "agents", "vault_address", "TEXT");
+  ensureColumn(db, "allowlist_entries", "max_per_tx_usdc", "INTEGER");
+  ensureColumn(db, "allowlist_entries", "daily_cap_usdc", "INTEGER");
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
@@ -161,6 +165,9 @@ export interface AllowlistEntry {
   address: string;
   label: string;
   active: number;
+  /** Per-recipient budget in raw micro-units (recipient entries only). NULL = no per-service cap, global leash applies. */
+  max_per_tx_usdc: number | null;
+  daily_cap_usdc: number | null;
 }
 
 export interface Transaction {
@@ -367,15 +374,40 @@ export function listAllowlistEntries(agentId: string, type?: "recipient" | "toke
   return getDb().prepare("SELECT * FROM allowlist_entries WHERE agent_id = ? AND active = 1").all(agentId) as AllowlistEntry[];
 }
 
-export function addAllowlistEntry(agentId: string, type: "recipient" | "token", address: string, label: string = ""): AllowlistEntry {
-  const result = getDb().prepare("INSERT INTO allowlist_entries (agent_id, entry_type, address, label) VALUES (?, ?, ?, ?)").run(agentId, type, address, label);
-  addAuditLog("allowlist", `${agentId}:${address}`, "allowlist_added", {type, address, label});
+export function addAllowlistEntry(
+  agentId: string,
+  type: "recipient" | "token",
+  address: string,
+  label: string = "",
+  maxPerTxUsdc: number | null = null,
+  dailyCapUsdc: number | null = null,
+): AllowlistEntry {
+  const result = getDb()
+    .prepare("INSERT INTO allowlist_entries (agent_id, entry_type, address, label, max_per_tx_usdc, daily_cap_usdc) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(agentId, type, address, label, maxPerTxUsdc, dailyCapUsdc);
+  addAuditLog("allowlist", `${agentId}:${address}`, "allowlist_added", {type, address, label, maxPerTxUsdc, dailyCapUsdc});
   return getDb().prepare("SELECT * FROM allowlist_entries WHERE id = ?").get(result.lastInsertRowid) as AllowlistEntry;
+}
+
+/** Set (or clear) a recipient's per-service budget. NULL caps mean no per-service limit. */
+export function setAllowlistEntryPolicy(id: number, maxPerTxUsdc: number | null, dailyCapUsdc: number | null) {
+  getDb().prepare("UPDATE allowlist_entries SET max_per_tx_usdc = ?, daily_cap_usdc = ? WHERE id = ?").run(maxPerTxUsdc, dailyCapUsdc, id);
+  addAuditLog("allowlist", String(id), "allowlist_policy_set", {maxPerTxUsdc, dailyCapUsdc});
 }
 
 export function removeAllowlistEntry(id: number) {
   getDb().prepare("UPDATE allowlist_entries SET active = 0 WHERE id = ?").run(id);
   addAuditLog("allowlist", String(id), "allowlist_removed", {});
+}
+
+/** Sum of APPROVED micro-units sent to a recipient by an agent within the last 24h (rolling window). */
+export function recipientSpentSince(agentId: string, recipient: string, sinceSecs: number): number {
+  const row = getDb()
+    .prepare(
+      "SELECT COALESCE(SUM(amount), 0) AS total FROM transactions WHERE agent_id = ? AND recipient = ? AND policy_decision = 'APPROVED' AND created_at >= ?",
+    )
+    .get(agentId, recipient, sinceSecs) as {total: number};
+  return row.total;
 }
 
 // ---- Transactions ----
@@ -520,6 +552,8 @@ export type DecisionCode =
   | "APPROVED"
   | "EXCEEDS_PER_TX_LIMIT"
   | "EXCEEDS_DAILY_LIMIT"
+  | "EXCEEDS_SERVICE_PER_TX_LIMIT"
+  | "EXCEEDS_SERVICE_DAILY_LIMIT"
   | "RECIPIENT_NOT_ALLOWLISTED"
   | "TOKEN_NOT_ALLOWLISTED"
   | "POLICY_EXPIRED"
@@ -568,8 +602,27 @@ export function evaluatePolicy(agentId: string, amount: number, recipient: strin
   }
 
   const recipients = listAllowlistEntries(agentId, "recipient");
-  const recipientOk = recipients.some((r) => r.address.toLowerCase() === recipient.toLowerCase());
-  if (!recipientOk) return {approved: false, code: "RECIPIENT_NOT_ALLOWLISTED", reason: "Recipient not in allowlist"};
+  const recipientEntry = recipients.find((r) => r.address.toLowerCase() === recipient.toLowerCase());
+  if (!recipientEntry) return {approved: false, code: "RECIPIENT_NOT_ALLOWLISTED", reason: "Recipient not in allowlist"};
+
+  // Per-service budget (control plane). NULL caps = no per-service limit; the global leash still backstops.
+  if (recipientEntry.max_per_tx_usdc != null && amount > recipientEntry.max_per_tx_usdc) {
+    return {
+      approved: false,
+      code: "EXCEEDS_SERVICE_PER_TX_LIMIT",
+      reason: `Amount $${(amount / 1e6).toFixed(2)} exceeds this service's $${(recipientEntry.max_per_tx_usdc / 1e6).toFixed(2)} per-tx budget`,
+    };
+  }
+  if (recipientEntry.daily_cap_usdc != null) {
+    const spent = recipientSpentSince(agentId, recipient, Math.floor(Date.now() / 1000) - 86400);
+    if (spent + amount > recipientEntry.daily_cap_usdc) {
+      return {
+        approved: false,
+        code: "EXCEEDS_SERVICE_DAILY_LIMIT",
+        reason: `Would exceed this service's $${(recipientEntry.daily_cap_usdc / 1e6).toFixed(2)} daily budget`,
+      };
+    }
+  }
 
   const tokens = listAllowlistEntries(agentId, "token");
   const tokenOk = tokens.some((t) => t.address.toLowerCase() === token.toLowerCase());

@@ -202,6 +202,12 @@ Blocked paths: amount 6 -> `EXCEEDS_PER_TX_LIMIT`; recipient `0x1111...` -> `REC
   `/api/allowlist/{agentId}/sync` verifies `allowedTarget` on-chain before mirroring the entry to the DB.
   Payments to the visitor's own wallet are always allowed; the "self (owner)" row is shown read-only.
   Revoke works the same way with `allowed: false`.
+- **Per-service budget (control plane):** the same card accepts an optional per-tx budget and daily cap
+  per service (USDC, persisted on `allowlist_entries.max_per_tx_usdc` / `daily_cap_usdc`, stored in
+  micro-units). `evaluatePolicy` checks them before the global leash: `EXCEEDS_SERVICE_PER_TX_LIMIT`
+  and `EXCEEDS_SERVICE_DAILY_LIMIT` (24h rolling window summed from APPROVED transactions for that
+  recipient). NULL caps = no per-service limit; the on-chain leash still backstops everything.
+  The API rejects per-tx > daily. Caps re-allow on re-sync, and are carried through update -> sync.
 - **Shared-vault agents (owner plane):** the server owner key signs the update directly.
 - Server-Side Policy card is DB-only (instant, no wallet).
 - Fence check: server allows 3.5 but on-chain cap rejects -> FAILED "reverted" (the on-chain fence is the backstop).
@@ -211,6 +217,10 @@ Verified live: visitor lowered 5/10 -> 0.1/1 on their own vault, signed in-walle
 Service flow verified live: allowlisted a third-party service address (visitor-signed `setAllowedTarget`,
 on-chain `allowedTarget = true`, DB mirrored), then the agent paid the service 0.05 USDC
 `APPROVED` + `CONFIRMED`, and the service received the funds.
+Per-service budget verified via `evaluatePolicy` (DB-backed): a 0.10/tx + 0.25/day budget on a test
+service correctly approved within budget, blocked a 0.15 spend with `EXCEEDS_SERVICE_PER_TX_LIMIT`,
+and blocked a cumulative 0.26/day with `EXCEEDS_SERVICE_DAILY_LIMIT`; clearing the caps restored
+approval. API round-trip carries the caps; per-tx > daily is rejected 400.
 
 ### 2.7 Allowlist (/dashboard/allowlist)
 
@@ -256,12 +266,16 @@ Expected output: `Leash: ... 5 USDC/tx, 10 USDC/day` then 3 scenarios -> 3 passe
 2. 6 USDC -> `BLOCKED EXCEEDS_PER_TX_LIMIT`
 3. 0.5 USDC to `0x1111...` -> `BLOCKED RECIPIENT_NOT_ALLOWLISTED`
 4. (service) visitor allows a third-party address in the Policies page, agent pays it 0.05 USDC -> `APPROVED` + `CONFIRMED`
+5. (service budget) visitor allows a third-party address with a 0.10/tx + 0.25/day budget;
+   a 0.15 pay -> `BLOCKED EXCEEDS_SERVICE_PER_TX_LIMIT`, then 0.09 + 0.09 (0.18/day cumulative)
+   approved, and 0.09 more (0.27/day) -> `BLOCKED EXCEEDS_SERVICE_DAILY_LIMIT`
 
 ### 3b. Handoff prompt (zero scripts - the real visitor flow)
 
 1. Create the vault, fund + deposit, register in the UI, and copy the API key.
 2. In the Policies page, allow a third-party service address (e.g. a fresh wallet) as a payee -
-   sign the allowlist change in your wallet, confirm it syncs.
+   sign the allowlist change in your wallet, confirm it syncs. Optionally set a per-service
+   budget (per-tx / daily) and verify the chip shows on the row.
 3. Copy the **Give this to your AI agent** prompt.
 4. Paste it into any AI agent (opencode, ChatGPT, Claude):
 
@@ -271,6 +285,8 @@ opencode run -m opencode/deepseek-v4-flash-free "I am an autonomous agent. <past
 
 The agent introspects its leash, makes a 0.5 USDC payment from the visitor's own vault,
 pays an allowed third-party service, and reports the tx hashes or the block reasons.
+With a per-service budget set, an over-budget payment is blocked with
+`EXCEEDS_SERVICE_PER_TX_LIMIT` / `EXCEEDS_SERVICE_DAILY_LIMIT`.
 
 ### 3c. On-chain verification
 

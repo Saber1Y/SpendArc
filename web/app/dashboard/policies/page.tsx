@@ -479,13 +479,15 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
   const {recipients, refetch} = useApiAllowlist(agentId);
   const [target, setTarget] = useState("");
   const [label, setLabel] = useState("");
+  const [maxPerTxUsdc, setMaxPerTxUsdc] = useState("");
+  const [dailyCapUsdc, setDailyCapUsdc] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const {getClient} = usePrivyWalletClient();
   const {isConnected, address} = useActiveAddress();
 
-  const change = async (addr: string, allow: boolean, entryLabel: string) => {
+  const change = async (addr: string, allow: boolean, entryLabel: string, perTx?: number, daily?: number) => {
     if (!isAddress(addr)) {
       setError("Enter a valid address (0x...).");
       return;
@@ -497,7 +499,7 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
       const res = await fetch(`/api/allowlist/${agentId}/update`, {
         method: "POST",
         headers: {"content-type": "application/json"},
-        body: JSON.stringify({address: addr, allowed: allow, label: entryLabel}),
+        body: JSON.stringify({address: addr, allowed: allow, label: entryLabel, maxPerTxUsdc: perTx, dailyCapUsdc: daily}),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -531,7 +533,7 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
       const sync = await fetch(`/api/allowlist/${agentId}/sync`, {
         method: "POST",
         headers: {"content-type": "application/json"},
-        body: JSON.stringify({address: addr, allowed: allow, label: entryLabel}),
+        body: JSON.stringify({address: addr, allowed: allow, label: entryLabel, maxPerTxUsdc: perTx, dailyCapUsdc: daily}),
       });
       const syncData = await sync.json();
       if (!sync.ok) {
@@ -539,9 +541,17 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
         refetch();
         return;
       }
-      setSuccess(allow ? "Service allowed - your agent can now pay it within the leash." : "Service removed from the allowlist.");
+      setSuccess(
+        allow
+          ? perTx != null || daily != null
+            ? "Service allowed with a per-service budget - the server fence caps what it can draw from the leash."
+            : "Service allowed - your agent can now pay it within the leash."
+          : "Service removed from the allowlist.",
+      );
       setTarget("");
       setLabel("");
+      setMaxPerTxUsdc("");
+      setDailyCapUsdc("");
       refetch();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -549,6 +559,11 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const parseUsdc = (v: string): number | undefined => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
   };
 
   const self = recipients.find((r) => r.label === "self (owner)");
@@ -559,7 +574,8 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
       <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Service payments</div>
       <div className="text-[12px] text-text-muted mb-3">
         Allow an address (a SaaS, an API, a merchant) your agent may pay from your vault. You sign the change in your wallet - it is your
-        vault. Payments to your own wallet are always allowed.
+        vault. Payments to your own wallet are always allowed. Set an optional per-service budget to cap what that service can draw - the
+        on-chain leash still backstops everything.
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -579,8 +595,24 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
           placeholder="Label (e.g. Analytics API)"
           className="w-44 rounded-lg border border-border bg-white px-3 py-2 text-[12px] text-text-primary outline-none focus:border-accent"
         />
+        <input
+          value={maxPerTxUsdc}
+          onChange={(e) => setMaxPerTxUsdc(e.target.value)}
+          placeholder="Budget / tx (USDC)"
+          inputMode="decimal"
+          className="w-36 rounded-lg border border-border bg-white px-3 py-2 text-[12px] text-text-primary outline-none focus:border-accent"
+        />
+        <input
+          value={dailyCapUsdc}
+          onChange={(e) => setDailyCapUsdc(e.target.value)}
+          placeholder="Daily cap (USDC)"
+          inputMode="decimal"
+          className="w-36 rounded-lg border border-border bg-white px-3 py-2 text-[12px] text-text-primary outline-none focus:border-accent"
+        />
         <button
-          onClick={() => change(target, true, label.trim() || "service")}
+          onClick={() =>
+            change(target, true, label.trim() || "service", parseUsdc(maxPerTxUsdc), parseUsdc(dailyCapUsdc))
+          }
           disabled={busy}
           className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
         >
@@ -605,9 +637,16 @@ function ServiceAllowlist({agentId}: {agentId: string}) {
           <div className="text-[12px] text-text-muted">No services allowed yet - the agent can only pay your own wallet.</div>
         ) : (
           services.map((r) => (
-            <div key={r.id} className="flex items-center gap-2 text-[12px]">
+            <div key={r.id} className="flex flex-wrap items-center gap-2 text-[12px]">
               <span className="font-mono text-text-primary">{truncateAddress(r.address as `0x${string}`)}</span>
               <span className="text-text-muted">{r.label}</span>
+              {(r.max_per_tx_usdc != null || r.daily_cap_usdc != null) && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-muted text-[11px] font-medium text-text-secondary">
+                  {r.max_per_tx_usdc != null && <span>{formatUsdc(BigInt(r.max_per_tx_usdc))}/tx</span>}
+                  {r.max_per_tx_usdc != null && r.daily_cap_usdc != null && <span>/</span>}
+                  {r.daily_cap_usdc != null && <span>{formatUsdc(BigInt(r.daily_cap_usdc))}/day</span>}
+                </span>
+              )}
               <button
                 onClick={() => change(r.address, false, r.label)}
                 disabled={busy}

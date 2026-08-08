@@ -54,6 +54,9 @@ export interface ApiAllowlistEntry {
   address: string;
   label: string;
   active: number;
+  /** Per-service budget in raw micro-units (recipient entries only). NULL = no per-service cap. */
+  max_per_tx_usdc: number | null;
+  daily_cap_usdc: number | null;
 }
 
 export interface ApiAuditLog {

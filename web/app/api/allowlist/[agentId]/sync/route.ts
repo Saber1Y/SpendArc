@@ -1,6 +1,6 @@
 import {NextRequest, NextResponse} from "next/server";
 import {isAddress, type Address} from "viem";
-import {getAgent, listAllowlistEntries, addAllowlistEntry, removeAllowlistEntry} from "@/lib/db";
+import {getAgent, listAllowlistEntries, addAllowlistEntry, removeAllowlistEntry, setAllowlistEntryPolicy} from "@/lib/db";
 import {getVaultAllowedTarget} from "@/lib/executor";
 
 export const runtime = "nodejs";
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
     return NextResponse.json({error: "Agent is not backed by a per-user vault"}, {status: 400});
   }
 
-  let body: {address?: string; allowed?: boolean; label?: string};
+  let body: {address?: string; allowed?: boolean; label?: string; maxPerTxUsdc?: number; dailyCapUsdc?: number};
   try {
     body = await req.json();
   } catch {
@@ -32,6 +32,11 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
   }
   const allowed = body.allowed !== false;
   const label = body.label?.trim() || "service";
+  const maxPerTxUsdc = typeof body.maxPerTxUsdc === "number" && body.maxPerTxUsdc > 0 ? Math.round(body.maxPerTxUsdc * 1_000_000) : null;
+  const dailyCapUsdc = typeof body.dailyCapUsdc === "number" && body.dailyCapUsdc > 0 ? Math.round(body.dailyCapUsdc * 1_000_000) : null;
+  if (maxPerTxUsdc != null && dailyCapUsdc != null && maxPerTxUsdc > dailyCapUsdc) {
+    return NextResponse.json({error: "Per-service per-tx budget cannot exceed its daily budget"}, {status: 400});
+  }
 
   let onchain: boolean;
   try {
@@ -52,10 +57,14 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
 
   const existing = listAllowlistEntries(agentId, "recipient").find((r) => r.address.toLowerCase() === address.toLowerCase());
   if (allowed) {
-    if (!existing) addAllowlistEntry(agentId, "recipient", address, label);
+    if (existing) {
+      setAllowlistEntryPolicy(existing.id, maxPerTxUsdc, dailyCapUsdc);
+    } else {
+      addAllowlistEntry(agentId, "recipient", address, label, maxPerTxUsdc, dailyCapUsdc);
+    }
   } else if (existing) {
     removeAllowlistEntry(existing.id);
   }
 
-  return NextResponse.json({ok: true, address, allowed, label});
+  return NextResponse.json({ok: true, address, allowed, label, maxPerTxUsdc, dailyCapUsdc});
 }

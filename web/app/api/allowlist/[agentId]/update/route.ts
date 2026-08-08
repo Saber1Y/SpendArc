@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
     return NextResponse.json({error: "Agent is not backed by a per-user vault"}, {status: 400});
   }
 
-  let body: {address?: string; allowed?: boolean; label?: string};
+  let body: {address?: string; allowed?: boolean; label?: string; maxPerTxUsdc?: number; dailyCapUsdc?: number};
   try {
     body = await req.json();
   } catch {
@@ -30,6 +30,12 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
   const address = (body.address ?? "").trim();
   if (!isAddress(address)) {
     return NextResponse.json({error: "A valid recipient address is required"}, {status: 400});
+  }
+
+  const maxPerTxUsdc = typeof body.maxPerTxUsdc === "number" && body.maxPerTxUsdc > 0 ? Math.round(body.maxPerTxUsdc * 1_000_000) : null;
+  const dailyCapUsdc = typeof body.dailyCapUsdc === "number" && body.dailyCapUsdc > 0 ? Math.round(body.dailyCapUsdc * 1_000_000) : null;
+  if (maxPerTxUsdc != null && dailyCapUsdc != null && maxPerTxUsdc > dailyCapUsdc) {
+    return NextResponse.json({error: "Per-service per-tx budget cannot exceed its daily budget"}, {status: 400});
   }
 
   const allowed = body.allowed !== false;
@@ -53,5 +59,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
     address,
     allowed,
     label: body.label ?? "",
+    maxPerTxUsdc: maxPerTxUsdc != null ? maxPerTxUsdc / 1_000_000 : null,
+    dailyCapUsdc: dailyCapUsdc != null ? dailyCapUsdc / 1_000_000 : null,
   });
 }

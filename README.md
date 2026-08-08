@@ -33,12 +33,14 @@ The product is self-serve:
 3. **Hand your agent a key.** Register the agent and mint a one-time API key. Any AI agent (opencode,
    ChatGPT, Claude) introspects its leash and makes payments inside it. The visitor owns the vault, so
    tightening the leash or allowlisting a **third-party service** are signed in *their* wallet, then
-   mirrored to the server.
+   mirrored to the server. Each allowed service can carry its own **per-service budget** (per-tx and
+   daily) enforced by the server fence on top of the vault's leash.
 
 Every payment is enforced by **two independent fences**:
 
 - **Fence 1 - control plane (server).** Every payment request is checked against the app's policy store
-  (active, not expired, per-tx cap, daily cap, recipient and token allowlists) before anything is sent to
+  (active, not expired, per-tx cap, daily cap, per-service budgets, recipient and token allowlists) before
+  anything is sent to
   the chain. An off-policy request is answered with a structured `BLOCKED` decision and never broadcast.
 - **Fence 2 - contract layer (`SpendArcVault`).** Any `executeSpend` call is re-checked against the full
   on-chain policy (active, expiry, token allowed, target allowed, per-tx cap, daily cap, dedup via a unique

@@ -11,7 +11,7 @@ export async function GET() {
     tx
       ? {
           txHash: tx.tx_hash,
-          amountRaw: String(Math.round(tx.amount * 1_000_000)),
+          amountRaw: String(tx.amount),
           reason: kind === "blocked" && tx.decision_code ? tx.decision_code : null,
         }
       : null;
