@@ -2,7 +2,7 @@
 
 import {useEffect, useState} from "react";
 import Link from "next/link";
-import type {Address} from "viem";
+import {isAddress, type Address} from "viem";
 import {CONTRACTS, vaultAbi} from "@/lib/contracts";
 import {useVaultState, useApiAgents, useApiAllowlist} from "@/lib/hooks";
 import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
@@ -475,6 +475,154 @@ function UserPolicyEditor({agentId, state, refetch}: {
   );
 }
 
+function ServiceAllowlist({agentId}: {agentId: string}) {
+  const {recipients, refetch} = useApiAllowlist(agentId);
+  const [target, setTarget] = useState("");
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const {getClient} = usePrivyWalletClient();
+  const {isConnected, address} = useActiveAddress();
+
+  const change = async (addr: string, allow: boolean, entryLabel: string) => {
+    if (!isAddress(addr)) {
+      setError("Enter a valid address (0x...).");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/allowlist/${agentId}/update`, {
+        method: "POST",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify({address: addr, allowed: allow, label: entryLabel}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message ?? data.error ?? "Failed to update allowlist");
+        return;
+      }
+      if (!data.tx || data.tx.to === "0x0000000000000000000000000000000000000000") {
+        setError("Vault not configured yet.");
+        return;
+      }
+      if (!isConnected || !address) {
+        setError("Connect your wallet to sign the allowlist change - you own this vault.");
+        return;
+      }
+      const client = await getClient();
+      if (!client) {
+        setError("No wallet connected - connect to sign the allowlist change.");
+        return;
+      }
+      const hash = await client.sendTransaction({
+        to: data.tx.to as Address,
+        data: data.tx.data as `0x${string}`,
+        chain: client.chain,
+        account: client.account!,
+      });
+      const status = await waitForReceiptRaw(hash);
+      if (status === "reverted") {
+        setError("The allowlist update reverted on-chain.");
+        return;
+      }
+      const sync = await fetch(`/api/allowlist/${agentId}/sync`, {
+        method: "POST",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify({address: addr, allowed: allow, label: entryLabel}),
+      });
+      const syncData = await sync.json();
+      if (!sync.ok) {
+        setError(syncData.message ?? syncData.error ?? "On-chain update confirmed, but the server mirror could not sync.");
+        refetch();
+        return;
+      }
+      setSuccess(allow ? "Service allowed - your agent can now pay it within the leash." : "Service removed from the allowlist.");
+      setTarget("");
+      setLabel("");
+      refetch();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg.includes("rejected") || msg.includes("denied") ? "Signature rejected in your wallet." : msg.slice(0, 300));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const self = recipients.find((r) => r.label === "self (owner)");
+  const services = recipients.filter((r) => r.label !== "self (owner)");
+
+  return (
+    <div className="p-4 rounded-lg border border-border">
+      <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Service payments</div>
+      <div className="text-[12px] text-text-muted mb-3">
+        Allow an address (a SaaS, an API, a merchant) your agent may pay from your vault. You sign the change in your wallet - it is your
+        vault. Payments to your own wallet are always allowed.
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={target}
+          onChange={(e) => {
+            setTarget(e.target.value);
+            setError("");
+            setSuccess("");
+          }}
+          placeholder="0x... service address"
+          className="w-64 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-mono text-text-primary outline-none focus:border-accent"
+        />
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label (e.g. Analytics API)"
+          className="w-44 rounded-lg border border-border bg-white px-3 py-2 text-[12px] text-text-primary outline-none focus:border-accent"
+        />
+        <button
+          onClick={() => change(target, true, label.trim() || "service")}
+          disabled={busy}
+          className="rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+        >
+          {busy ? "Signing..." : "Allow service"}
+        </button>
+      </div>
+
+      {error && <div className="text-[12px] text-state-blocked mt-3">{error}</div>}
+      {success && <div className="text-[12px] text-state-approved mt-3">{success}</div>}
+
+      <div className="mt-4 space-y-1">
+        {self && (
+          <div className="flex items-center gap-2 text-[12px] text-text-muted">
+            <span className="font-mono text-text-primary">{truncateAddress(self.address as `0x${string}`)}</span>
+            <span>{self.label}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-state-approved-light text-[11px] font-medium text-state-approved">
+              always allowed
+            </span>
+          </div>
+        )}
+        {services.length === 0 ? (
+          <div className="text-[12px] text-text-muted">No services allowed yet - the agent can only pay your own wallet.</div>
+        ) : (
+          services.map((r) => (
+            <div key={r.id} className="flex items-center gap-2 text-[12px]">
+              <span className="font-mono text-text-primary">{truncateAddress(r.address as `0x${string}`)}</span>
+              <span className="text-text-muted">{r.label}</span>
+              <button
+                onClick={() => change(r.address, false, r.label)}
+                disabled={busy}
+                className="rounded-md border border-state-blocked/30 px-2 py-1 text-[11px] font-medium text-state-blocked hover:bg-state-blocked/10 disabled:opacity-50"
+              >
+                Revoke
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function UserPolicyPage() {
   const {agent, loading} = useMyAgent();
 
@@ -510,7 +658,6 @@ function UserPolicyPage() {
 
 function UserPolicyWithAgent({agentId, agentAddress, vaultAddress}: {agentId: string; agentAddress: Address; vaultAddress?: string | null}) {
   const {data: state, loading, error, refetch} = useVaultState(agentAddress, (vaultAddress as Address | undefined) ?? CONTRACTS.vault);
-  const {recipients} = useApiAllowlist(agentId);
 
   return (
     <div className="p-8 max-w-[900px] mx-auto">
@@ -556,22 +703,7 @@ function UserPolicyWithAgent({agentId, agentAddress, vaultAddress}: {agentId: st
 
             <div className="space-y-4">
               <UserPolicyEditor agentId={agentId} state={state} refetch={refetch} />
-
-              <div className="p-4 rounded-lg border border-border">
-                <div className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">Recipients allowed</div>
-                {recipients.length === 0 ? (
-                  <div className="text-[12px] text-text-muted">None - payments are blocked.</div>
-                ) : (
-                  <ul className="space-y-1">
-                    {recipients.map((r) => (
-                      <li key={r.id} className="flex items-center gap-2 text-[12px] font-mono text-text-primary">
-                        {truncateAddress(r.address as `0x${string}`)}
-                        <span className="text-[11px] text-text-muted">{r.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <ServiceAllowlist agentId={agentId} />
             </div>
           </>
         ) : null}

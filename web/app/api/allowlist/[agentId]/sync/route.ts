@@ -1,0 +1,61 @@
+import {NextRequest, NextResponse} from "next/server";
+import {isAddress, type Address} from "viem";
+import {getAgent, listAllowlistEntries, addAllowlistEntry, removeAllowlistEntry} from "@/lib/db";
+import {getVaultAllowedTarget} from "@/lib/executor";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * After the visitor signs the allowlist change in their wallet, mirror the confirmed
+ * on-chain `allowedTarget` state into the server store so both fences stay in sync.
+ * Verifies the vault actually reflects the requested value before writing.
+ */
+export async function POST(req: NextRequest, {params}: {params: Promise<{agentId: string}>}) {
+  const {agentId} = await params;
+  const agent = getAgent(agentId);
+  if (!agent) return NextResponse.json({error: "Agent not found"}, {status: 404});
+  if (!agent.vault_address) {
+    return NextResponse.json({error: "Agent is not backed by a per-user vault"}, {status: 400});
+  }
+
+  let body: {address?: string; allowed?: boolean; label?: string};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({error: "invalid request"}, {status: 400});
+  }
+
+  const address = (body.address ?? "").trim();
+  if (!isAddress(address)) {
+    return NextResponse.json({error: "A valid recipient address is required"}, {status: 400});
+  }
+  const allowed = body.allowed !== false;
+  const label = body.label?.trim() || "service";
+
+  let onchain: boolean;
+  try {
+    onchain = await getVaultAllowedTarget(agent.vault_address as Address, agent.address as Address, address as Address);
+  } catch {
+    return NextResponse.json({error: "VAULT_READ_FAILED", message: "Could not read the vault allowlist on-chain."}, {status: 502});
+  }
+
+  if (onchain !== allowed) {
+    return NextResponse.json(
+      {
+        error: "ONCHAIN_MISMATCH",
+        message: `On-chain allowlist does not match - the vault shows this service as ${onchain ? "allowed" : "not allowed"}.`,
+      },
+      {status: 409},
+    );
+  }
+
+  const existing = listAllowlistEntries(agentId, "recipient").find((r) => r.address.toLowerCase() === address.toLowerCase());
+  if (allowed) {
+    if (!existing) addAllowlistEntry(agentId, "recipient", address, label);
+  } else if (existing) {
+    removeAllowlistEntry(existing.id);
+  }
+
+  return NextResponse.json({ok: true, address, allowed, label});
+}

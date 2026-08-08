@@ -413,6 +413,20 @@ export function getTransaction(id: string): Transaction | undefined {
   return getDb().prepare("SELECT * FROM transactions WHERE id = ?").get(id) as Transaction | undefined;
 }
 
+/** Latest confirmed approved spend and latest blocked attempt, for the landing-page live proof. */
+export function latestProofTx(): {approved?: Transaction; blocked?: Transaction} {
+  const db = getDb();
+  const approved = db
+    .prepare(
+      "SELECT * FROM transactions WHERE policy_decision = 'APPROVED' AND execution_status = 'CONFIRMED' AND tx_hash IS NOT NULL ORDER BY created_at DESC LIMIT 1",
+    )
+    .get() as Transaction | undefined;
+  const blocked = db
+    .prepare("SELECT * FROM transactions WHERE policy_decision = 'BLOCKED' ORDER BY created_at DESC LIMIT 1")
+    .get() as Transaction | undefined;
+  return {approved, blocked};
+}
+
 // ---- Audit ----
 
 export function listAuditLogs(limit: number = 50): AuditLog[] {

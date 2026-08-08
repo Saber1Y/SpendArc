@@ -127,6 +127,17 @@ export async function checkVaultAllowlist(vaultAddress: Address, agentAddress: A
   return {targetAllowed: targetOk as boolean, tokenAllowed: tokenOk as boolean};
 }
 
+/** Read whether a vault allows `agent` to pay `target`. Used to verify a visitor-signed allowlist change before mirroring to the DB. */
+export async function getVaultAllowedTarget(vaultAddress: Address, agentAddress: Address, target: Address): Promise<boolean> {
+  const client = createPublicClient({transport: http(ARC_RPC_URL)});
+  return client.readContract({
+    address: vaultAddress,
+    abi: VAULT_ABI,
+    functionName: "allowedTarget",
+    args: [agentAddress, target],
+  }) as Promise<boolean>;
+}
+
 /**
  * Execute a spend on behalf of `agent`. The vault enforces the AGENT's policy,
  * not the executor's. The executor (server key) must be an authorized executor

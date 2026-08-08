@@ -20,6 +20,7 @@ const vaultAbi = parseAbi([
   "function deposit(uint256 amount)",
   "function withdrawTokens(address token,address to,uint256 amount)",
   "function getPolicy(address agent) view returns ((uint128 maxPerTx,uint128 dailyCap,uint128 spentToday,uint64 lastResetTime,uint64 expiry,bool active))",
+  "function allowedTarget(address agent,address target) view returns (bool)",
 ]);
 
 const OPERATOR = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84";
@@ -125,6 +126,39 @@ async function main() {
     body: JSON.stringify({agentId, recipient: visitor, amount: "0.5", token: "USDC", purpose: "sim test"}),
   })).json();
   console.log("payment(0.5):", JSON.stringify(pay).slice(0, 400));
+
+  // 6b. Allowlist a third-party service (fresh account, not the visitor) and pay it.
+  const svc = privateKeyToAccount(loadOrGenKey());
+  console.log("service:", svc.address);
+  const al = await (await fetch(`${BASE}/api/allowlist/${agentId}/update`, {
+    method: "POST",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify({address: svc.address, allowed: true, label: "Sim Analytics API"}),
+  })).json();
+  console.log("allowlist update has tx:", !!al.tx, al.tx ? al.tx.description : al);
+  if (!al.tx || al.tx.to === "0x0000000000000000000000000000000000000000") throw new Error("no calldata from allowlist update");
+  await sendTx(account, al.tx.to, al.tx.data, "signServiceAllowlist");
+  const alSync = await (await fetch(`${BASE}/api/allowlist/${agentId}/sync`, {
+    method: "POST",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify({address: svc.address, allowed: true, label: "Sim Analytics API"}),
+  })).json();
+  console.log("allowlist sync:", JSON.stringify(alSync).slice(0, 200));
+  const onchainAllowed = await publicClient.readContract({
+    address: vault, abi: vaultAbi, functionName: "allowedTarget", args: [visitor, svc.address],
+  });
+  console.log("on-chain allowedTarget(agent, service):", onchainAllowed);
+  const dbList = await (await fetch(`${BASE}/api/allowlist/${agentId}`, {headers: {authorization: `Bearer ${apiKey}`}})).json();
+  console.log("server allowlist recipients:", JSON.stringify(dbList.recipients ?? dbList).slice(0, 300));
+  if (!onchainAllowed) throw new Error("service not allowlisted on-chain");
+  const svcPay = await (await fetch(`${BASE}/api/payments/request`, {
+    method: "POST",
+    headers: {"content-type": "application/json", authorization: `Bearer ${apiKey}`},
+    body: JSON.stringify({agentId, recipient: svc.address, amount: "0.05", token: "USDC", purpose: "pay service"}),
+  })).json();
+  console.log("payment(0.05 to service):", JSON.stringify(svcPay).slice(0, 400));
+  const svcBal = await publicClient.readContract({address: USDC, abi: usdcAbi, functionName: "balanceOf", args: [svc.address]});
+  console.log("service USDC balance:", svcBal.toString());
 
   // 7. Leash edit: lower cap to 0.1/1
   const upd = await (await fetch(`${BASE}/api/policies/${agentId}/update`, {

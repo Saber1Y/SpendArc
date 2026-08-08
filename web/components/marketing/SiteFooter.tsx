@@ -4,7 +4,7 @@ import {CONTRACTS} from "@/lib/contracts";
 import {ArrowUpRight} from "@/components/ui/Icons";
 
 const links = [
-  {label: "Vault contract", href: explorerAddress(CONTRACTS.vault)},
+  {label: "Vault factory", href: explorerAddress(CONTRACTS.factory)},
   {label: "USDC", href: explorerAddress(CONTRACTS.usdc)},
   {label: "Explorer", href: "https://scan.bohr.life"},
 ];

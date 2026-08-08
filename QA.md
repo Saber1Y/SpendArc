@@ -2,6 +2,7 @@
 
 End-to-end test flow for SpendArc on Arc Testnet.
 Covers the contracts (factory + per-user vault), the backend control-plane API, the dashboard UI, and the autonomous AI agent flow.
+For the demo **recording** script (video + submission artifacts), see **[DEMO.md](./DEMO.md)**.
 
 ## Product model (read this first)
 
@@ -22,6 +23,10 @@ The operator-plane demo still exists on a shared vault for the owner's own agent
 - Explorer: `https://testnet.arcscan.app` (tx: `/tx/<hash>`, address: `/address/<addr>`)
 - Owner + executor + demo agent: `0x3F5b96A494061F7338Da529e3047809Ac6a7FB84` (Test Agent, policy 5/tx + 20/day on the shared vault)
 - Faucet grant is **3 USDC + 0.05 gas** (temporary while the operator refills; see caveats)
+- Operator USDC balance: `3,153,060` raw (enough for one 3-USDC visitor grant) - recheck before demo
+
+The landing page's "Live proof" section is data-driven: it reads the latest approved + blocked
+transactions from `/api/transactions/proof` and re-reads the receipts on-chain on every load.
 
 Baseline snapshot (record deltas before/after every session):
 
@@ -191,17 +196,28 @@ Blocked paths: amount 6 -> `EXCEEDS_PER_TX_LIMIT`; recipient `0x1111...` -> `REC
   their own wallet (`/api/policies/{agentId}/update`). After the tx confirms, the UI calls
   `/api/policies/{agentId}/sync` to mirror the on-chain values into the DB.
   Clamped to 10/tx, 25/day, per-tx <= daily. A policy that diverges from the chain returns `ONCHAIN_MISMATCH` on sync.
+- **Service payments:** the same page's "Service payments" card lets the visitor allow any address
+  (a SaaS, an API, a merchant) as a payee. `/api/allowlist/{agentId}/update` returns unsigned calldata
+  for `setAllowedTarget(vault, agent, service, true)`; the visitor signs in their wallet, then
+  `/api/allowlist/{agentId}/sync` verifies `allowedTarget` on-chain before mirroring the entry to the DB.
+  Payments to the visitor's own wallet are always allowed; the "self (owner)" row is shown read-only.
+  Revoke works the same way with `allowed: false`.
 - **Shared-vault agents (owner plane):** the server owner key signs the update directly.
 - Server-Side Policy card is DB-only (instant, no wallet).
 - Fence check: server allows 3.5 but on-chain cap rejects -> FAILED "reverted" (the on-chain fence is the backstop).
 
 Verified live: visitor lowered 5/10 -> 0.1/1 on their own vault, signed in-wallet, synced
 (`spent_today` preserved), then a 0.5 spend was blocked with `EXCEEDS_PER_TX_LIMIT`.
+Service flow verified live: allowlisted a third-party service address (visitor-signed `setAllowedTarget`,
+on-chain `allowedTarget = true`, DB mirrored), then the agent paid the service 0.05 USDC
+`APPROVED` + `CONFIRMED`, and the service received the funds.
 
 ### 2.7 Allowlist (/dashboard/allowlist)
 
 Per-user vaults are pre-allowlisted to USDC + the visitor's own address at creation.
-Server-side adds/removes on the shared vault are instant and free; on-chain adds are owner-gated.
+Service payees are added by the visitor themselves (they own the vault) via the Policies page:
+visitor-signed `setAllowedTarget` -> on-chain verified -> DB mirrored. Removing a payee revokes on-chain
+and in the DB. Server-side adds/removes on the shared vault are instant and free; on-chain adds are owner-gated.
 
 ### 2.8 Payments (/dashboard/payments)
 
@@ -239,19 +255,22 @@ Expected output: `Leash: ... 5 USDC/tx, 10 USDC/day` then 3 scenarios -> 3 passe
 1. Approved 0.5 USDC to self -> `APPROVED` + `CONFIRMED` + tx hash
 2. 6 USDC -> `BLOCKED EXCEEDS_PER_TX_LIMIT`
 3. 0.5 USDC to `0x1111...` -> `BLOCKED RECIPIENT_NOT_ALLOWLISTED`
+4. (service) visitor allows a third-party address in the Policies page, agent pays it 0.05 USDC -> `APPROVED` + `CONFIRMED`
 
 ### 3b. Handoff prompt (zero scripts - the real visitor flow)
 
 1. Create the vault, fund + deposit, register in the UI, and copy the API key.
-2. Copy the **Give this to your AI agent** prompt.
-3. Paste it into any AI agent (opencode, ChatGPT, Claude):
+2. In the Policies page, allow a third-party service address (e.g. a fresh wallet) as a payee -
+   sign the allowlist change in your wallet, confirm it syncs.
+3. Copy the **Give this to your AI agent** prompt.
+4. Paste it into any AI agent (opencode, ChatGPT, Claude):
 
 ```bash
 opencode run -m opencode/deepseek-v4-flash-free "I am an autonomous agent. <paste handoff prompt>"
 ```
 
 The agent introspects its leash, makes a 0.5 USDC payment from the visitor's own vault,
-and reports the tx hash or the block reason.
+pays an allowed third-party service, and reports the tx hashes or the block reasons.
 
 ### 3c. On-chain verification
 

@@ -6,10 +6,9 @@ import {Card} from "@/components/ui/Card";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {TxChip, Chip} from "@/components/ui/Chip";
 import {Skeleton} from "@/components/ui/Row";
-import {fetchProof, PROOF_TX, type ProofResult} from "@/lib/proof";
-import {formatUsdc, truncateAddress, truncateHash} from "@/lib/format";
+import {fetchLatestProofs, type ProofResult} from "@/lib/proof";
+import {formatUsdc, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
-import {AGENT_ADDRESS} from "@/lib/contracts";
 
 function ProofColumn({data}: {data: ProofResult | undefined}) {
   const approved = data?.kind === "approved";
@@ -18,7 +17,9 @@ function ProofColumn({data}: {data: ProofResult | undefined}) {
       <div className="flex items-center justify-between">
         {data ? <StateBadge kind={data.kind} /> : <Skeleton className="h-6 w-24" />}
         {data ? (
-          <Chip tone={data.source === "chain" ? "accent" : "outline"}>{data.source === "chain" ? "live read" : "snapshot"}</Chip>
+          <Chip tone={data.source === "chain" ? "accent" : "outline"}>
+            {data.source === "chain" ? "live read" : data.source === "db" ? "recorded" : "snapshot"}
+          </Chip>
         ) : (
           <Skeleton className="h-6 w-16" />
         )}
@@ -76,8 +77,11 @@ export function LiveProof() {
 
   useEffect(() => {
     let alive = true;
-    fetchProof("approved", PROOF_TX.approved).then((r) => alive && setApproved(r));
-    fetchProof("blocked", PROOF_TX.blocked).then((r) => alive && setBlocked(r));
+    fetchLatestProofs().then((r) => {
+      if (!alive) return;
+      setApproved(r.approved);
+      setBlocked(r.blocked);
+    });
     return () => {
       alive = false;
     };
@@ -92,9 +96,9 @@ export function LiveProof() {
             Same agent. One variable.
           </h2>
           <p className="mt-5 text-body text-text-secondary">
-            Two real actions from agent <span className="text-text-primary font-medium">{truncateAddress(AGENT_ADDRESS)}</span>
-            on Arc testnet - 1.5 USDC approved and moved on-chain, then a 6 USDC attempt blocked against the same
-            5 USDC per-transaction cap. Live reads from the vault, not a simulation.
+            Two real actions on Arc testnet - an approved spend moved on-chain, then a
+            blocked attempt rejected by the policy. Live reads of the most recent activity
+            from the SpendArc vaults, not a simulation.
           </p>
         </div>
 

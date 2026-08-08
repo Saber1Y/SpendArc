@@ -12,8 +12,8 @@ export function CTASection() {
             Programmable spending controls for autonomous agents.
           </h2>
           <p className="mx-auto mt-6 max-w-[52ch] text-body text-white/70">
-            Watch the policy, the sponsor status and every approved and blocked action - live from the deployed
-            contracts on Arc Testnet.
+            Your wallet, your vault, your leash. Create one, fund it, and watch approved and blocked agent
+            payments land live from the deployed contracts on Arc Testnet.
           </p>
           <div className="mt-10 flex justify-center">
             <LinkButton href="/dashboard" variant="accent" size="md">
