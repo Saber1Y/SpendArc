@@ -5,10 +5,11 @@ import Link from "next/link";
 import type {Address} from "viem";
 import {CONTRACTS, vaultAbi} from "@/lib/contracts";
 import {useVaultState, useApiAgents, useApiAllowlist} from "@/lib/hooks";
-import {useActiveAddress} from "@/lib/usePrivyWallet";
+import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
 import {useRole, useMyAgent} from "@/lib/useRole";
 import {isSameAddress, formatUsdc, formatExpiry, truncateAddress} from "@/lib/format";
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
+import {waitForReceiptRaw} from "@/lib/txwait";
 import {Field, TextInput, Toggle} from "@/components/ui/Input";
 import {MAX_PER_TX_USDC, MAX_DAILY_CAP_USDC} from "@/lib/policyLimits";
 
@@ -136,7 +137,7 @@ function OwnerPolicies() {
   const {agents} = useApiAgents();
   const agentAddress = (agents[0]?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
   const agentId = agents[0]?.id ?? "";
-  const {data: state, loading, error, refetch} = useVaultState(agentAddress);
+  const {data: state, loading, error, refetch} = useVaultState(agentAddress, CONTRACTS.vault);
   const {address, isConnected} = useActiveAddress();
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
 
@@ -331,6 +332,8 @@ function UserPolicyEditor({agentId, state, refetch}: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const {getClient} = usePrivyWalletClient();
+  const {isConnected, address} = useActiveAddress();
 
   const applyPreset = (mpt: string, dc: string) => {
     setMaxPerTx(mpt);
@@ -368,10 +371,55 @@ function UserPolicyEditor({agentId, state, refetch}: {
         setError(data.message ?? data.error ?? "Failed to update leash");
         return;
       }
+
+      if (data.tx) {
+        // Per-user vault: the visitor is the vault owner, so they sign the leash change.
+        if (!isConnected || !address) {
+          setError("Connect your wallet to sign the leash change - you own this vault.");
+          return;
+        }
+        if (data.tx.to.toLowerCase() === "0x0000000000000000000000000000000000000000") {
+          setError("Vault not configured yet.");
+          return;
+        }
+        const client = await getClient();
+        if (!client) {
+          setError("No wallet connected - connect to sign the leash change.");
+          return;
+        }
+        const hash = await client.sendTransaction({
+          to: data.tx.to as Address,
+          data: data.tx.data as `0x${string}`,
+          chain: client.chain,
+          account: client.account!,
+        });
+        const status = await waitForReceiptRaw(hash);
+        if (status === "reverted") {
+          setError("The leash update reverted on-chain.");
+          return;
+        }
+        const sync = await fetch(`/api/policies/${agentId}/sync`, {
+          method: "POST",
+          headers: {"content-type": "application/json"},
+          body: JSON.stringify({maxPerTxUsdc: mpt, dailyCapUsdc: dc}),
+        });
+        const syncData = await sync.json();
+        if (!sync.ok) {
+          setError(syncData.message ?? syncData.error ?? "On-chain update confirmed, but the server mirror could not sync.");
+          refetch();
+          return;
+        }
+        setSuccess(`Leash updated on-chain with your signature. Your AI agent's requests are now bound by the new limits.`);
+        refetch();
+        return;
+      }
+
+      // Shared vault (operator plane): server owner key signed the update already.
       setSuccess(`Leash updated on-chain${data.txHash ? " - tx confirmed" : ""}. Your AI agent's requests are now bound by the new limits.`);
       refetch();
     } catch (e) {
-      setError((e as Error).message);
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg.includes("rejected") || msg.includes("denied") ? "Signature rejected in your wallet." : msg.slice(0, 300));
     } finally {
       setSaving(false);
     }
@@ -422,7 +470,7 @@ function UserPolicyEditor({agentId, state, refetch}: {
           {saving ? "Updating on-chain..." : "Save leash"}
         </button>
       </div>
-      {saving && <div className="text-[12px] text-text-muted">Owner key signs the vault policy update...</div>}
+      {saving && <div className="text-[12px] text-text-muted">You sign the leash update in your wallet - it is your vault...</div>}
     </div>
   );
 }
@@ -457,11 +505,11 @@ function UserPolicyPage() {
     );
   }
 
-  return <UserPolicyWithAgent agentId={agent.id} agentAddress={agent.address as Address} />;
+  return <UserPolicyWithAgent agentId={agent.id} agentAddress={agent.address as Address} vaultAddress={agent.vault_address} />;
 }
 
-function UserPolicyWithAgent({agentId, agentAddress}: {agentId: string; agentAddress: Address}) {
-  const {data: state, loading, error, refetch} = useVaultState(agentAddress);
+function UserPolicyWithAgent({agentId, agentAddress, vaultAddress}: {agentId: string; agentAddress: Address; vaultAddress?: string | null}) {
+  const {data: state, loading, error, refetch} = useVaultState(agentAddress, (vaultAddress as Address | undefined) ?? CONTRACTS.vault);
   const {recipients} = useApiAllowlist(agentId);
 
   return (

@@ -34,6 +34,7 @@ export interface ApiAgent {
   status: string;
   created_at: number;
   last_active_at: number;
+  vault_address: string | null;
 }
 
 export interface ApiPolicy {
@@ -90,7 +91,7 @@ export interface ApiAgentRunEvent {
 }
 
 /** Batched vault-state read. Refetches on window focus + manual + post-action only (no interval). */
-export function useVaultState(agent: Address) {
+export function useVaultState(agent: Address, vault: Address) {
   const [state, setState] = useState<AsyncState<VaultState>>({data: undefined, loading: true, error: undefined});
   const inflight = useRef<Promise<void> | null>(null);
 
@@ -99,7 +100,7 @@ export function useVaultState(agent: Address) {
     setState((s) => ({...s, loading: true}));
     inflight.current = (async () => {
       try {
-        const data = await readVaultState(agent);
+        const data = await readVaultState(agent, vault);
         setState({data, loading: false, error: undefined});
       } catch (e) {
         setState((s) => ({data: s.data, loading: false, error: e as Error}));
@@ -110,7 +111,7 @@ export function useVaultState(agent: Address) {
     } finally {
       inflight.current = null;
     }
-  }, [agent]);
+  }, [agent, vault]);
 
   useEffect(() => { void refetch(); }, [refetch]);
   useEffect(() => {

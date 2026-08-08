@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
       ".jsx": [".jsx", ".tsx"],
       ".mjs": [".mjs", ".mts"],
     };
+    // These optional peer deps of @privy-io/react-auth and @metamask/sdk are
+    // statically resolved by webpack but unused here (Farcaster mini-app,
+    // React Native). Alias to an empty shim so the bundle builds.
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      "@farcaster/mini-app-solana": require.resolve("./lib/empty-module.js"),
+      "@react-native-async-storage/async-storage": require.resolve("./lib/empty-module.js"),
+    };
     return config;
   },
 };

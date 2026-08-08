@@ -308,7 +308,7 @@ export default function AllowlistPage() {
   const {agents} = useApiAgents();
   const agentAddress = (agents[0]?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
   const agentId = agents[0]?.id ?? "";
-  const {data: state, refetch} = useVaultState(agentAddress);
+  const {data: state, refetch} = useVaultState(agentAddress, CONTRACTS.vault);
   const {address, isConnected} = useActiveAddress();
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
 

@@ -9,6 +9,9 @@ const VAULT_ABI = parseAbi([
   "function setAllowedTarget(address agent, address target, bool allowed)",
   "function setAllowedToken(address agent, address token, bool allowed)",
   "function setExecutor(address executor, bool enabled)",
+  "function deposit(uint256 amount)",
+  "function owner() view returns (address)",
+  "function usdc() view returns (address)",
   "function getPolicy(address agent) view returns ((uint128 maxPerTx,uint128 dailyCap,uint128 spentToday,uint64 lastResetTime,uint64 expiry,bool active))",
   "function remainingDailyCap(address agent) view returns (uint256)",
   "function allowedTarget(address agent,address target) view returns (bool)",
@@ -18,6 +21,7 @@ const VAULT_ABI = parseAbi([
 const USDC_ABI = parseAbi([
   "function balanceOf(address) view returns (uint256)",
   "function decimals() view returns (uint8)",
+  "function transfer(address to,uint256 amount) returns (bool)",
 ]);
 
 export interface ExecuteResult {
@@ -57,6 +61,52 @@ async function sendAndWait(to: Address, calldata: Hex): Promise<ExecuteResult> {
 export async function checkVaultBalance(vaultAddress: Address): Promise<bigint> {
   const client = createPublicClient({transport: http(ARC_RPC_URL)});
   return client.readContract({address: USDC_ADDRESS, abi: USDC_ABI, functionName: "balanceOf", args: [vaultAddress]});
+}
+
+/**
+ * Verify an address is a SpendArc vault owned by `expectedOwner` with the canonical USDC
+ * token. Used before binding a self-created per-user vault to a registered agent.
+ */
+export async function verifyUserVault(vaultAddress: Address, expectedOwner: Address): Promise<{ok: boolean; reason?: string}> {
+  try {
+    const client = createPublicClient({transport: http(ARC_RPC_URL)});
+    const code = await client.getCode({address: vaultAddress});
+    if (!code || code === "0x") return {ok: false, reason: "no contract at address"};
+    const [owner, usdc] = await Promise.all([
+      client.readContract({address: vaultAddress, abi: VAULT_ABI, functionName: "owner", args: []}),
+      client.readContract({address: vaultAddress, abi: VAULT_ABI, functionName: "usdc", args: []}),
+    ]);
+    if ((owner as Address).toLowerCase() !== expectedOwner.toLowerCase()) return {ok: false, reason: "vault owner mismatch"};
+    if ((usdc as Address).toLowerCase() !== USDC_ADDRESS.toLowerCase()) return {ok: false, reason: "vault does not use canonical USDC"};
+    return {ok: true};
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {ok: false, reason: msg.slice(0, 200)};
+  }
+}
+
+/**
+ * Server-side testnet faucet: send native gas + USDC from the operator key to a visitor
+ * wallet so it can create its own vault and deposit. Owner key must hold both assets.
+ */
+export async function fundVisitorWallet(to: Address, gasEthWei: bigint, usdcBaseUnits: bigint) {
+  const owner = getSigner("VAULT_OWNER_PRIVATE_KEY");
+  const walletClient = createWalletClient({account: owner, transport: http(ARC_RPC_URL)});
+  const publicClient = createPublicClient({transport: http(ARC_RPC_URL)});
+  try {
+    const gasTx = await walletClient.sendTransaction({to, value: gasEthWei, chain: undefined});
+    await publicClient.waitForTransactionReceipt({hash: gasTx, timeout: 60_000});
+    const usdcTx = await walletClient.sendTransaction({
+      to: USDC_ADDRESS,
+      data: encodeFunctionData({abi: USDC_ABI, functionName: "transfer", args: [to, usdcBaseUnits]}),
+      chain: undefined,
+    });
+    await publicClient.waitForTransactionReceipt({hash: usdcTx, timeout: 60_000});
+    return {success: true as const, gasTx, usdcTx};
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {success: false as const, error: msg.slice(0, 200)};
+  }
 }
 
 export async function getVaultPolicy(vaultAddress: Address, agentAddress: Address) {

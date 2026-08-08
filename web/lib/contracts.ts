@@ -5,6 +5,7 @@ import {USDC_ADDRESS} from "./arc";
 export const CONTRACTS = {
   usdc: USDC_ADDRESS,
   vault: (process.env.NEXT_PUBLIC_VAULT_ADDRESS || "0x0000000000000000000000000000000000000000") as Address,
+  factory: (process.env.NEXT_PUBLIC_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000") as Address,
 } as const satisfies Record<string, Address>;
 
 export const USDC_DECIMALS = 6;
@@ -30,6 +31,8 @@ export const vaultAbi = parseAbi([
   "function revokeAgent(address agent)",
   "function withdrawTokens(address token,address to,uint256 amount)",
   "function setExecutor(address executor,bool enabled)",
+  "function deposit(uint256 amount)",
+  "function usdc() view returns (address)",
   // agent actions
   "function executeSpend(address token,address target,uint256 amount,bytes data,bytes32 actionId) returns (bool)",
   "function executeSpendFor(address agent,address token,address target,uint256 amount,bytes data,bytes32 actionId) returns (bool)",
@@ -54,6 +57,16 @@ export const usdcAbi = parseAbi([
   "function approve(address spender,uint256 amount) returns (bool)",
   "function transfer(address to,uint256 amount) returns (bool)",
   "event Transfer(address indexed from,address indexed to,uint256 value)",
+]);
+
+export const factoryAbi = parseAbi([
+  "function createVault(uint128 maxPerTx,uint128 dailyCap,uint64 expiry) returns (address)",
+  "function vaultOf(address owner) view returns (address)",
+  "function vaultByAgent(address agent) view returns (address)",
+  "function vaultCount() view returns (uint256)",
+  "function usdc() view returns (address)",
+  "function executor() view returns (address)",
+  "event VaultCreated(address indexed owner,address indexed agent,address vault,uint128 maxPerTx,uint128 dailyCap)",
 ]);
 
 

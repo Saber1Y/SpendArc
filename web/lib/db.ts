@@ -98,10 +98,21 @@ function initSchema(db: Database.Database) {
       tx_hash TEXT,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS vaults (
+      id TEXT PRIMARY KEY,
+      vault_address TEXT NOT NULL,
+      owner_address TEXT NOT NULL,
+      agent_address TEXT NOT NULL,
+      usdc_address TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at INTEGER NOT NULL
+    );
   `);
 
   ensureColumn(db, "agents", "api_key_hash", "TEXT");
   ensureColumn(db, "agents", "created_by", "TEXT");
+  ensureColumn(db, "agents", "vault_address", "TEXT");
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
@@ -120,6 +131,17 @@ export interface Agent {
   last_active_at: number | null;
   api_key_hash: string | null;
   created_by: string | null;
+  vault_address: string | null;
+}
+
+export interface Vault {
+  id: string;
+  vault_address: string;
+  owner_address: string;
+  agent_address: string;
+  usdc_address: string;
+  status: string;
+  created_at: number;
 }
 
 export interface Policy {
@@ -217,7 +239,7 @@ export function getAgent(id: string): Agent | undefined {
 export function createAgent(name: string, address: string): Agent {
   const id = `agent_${randomUUID().slice(0, 8)}`;
   const now = Math.floor(Date.now() / 1000);
-  const agent: Agent = {id, name, address, status: "active", created_at: now, last_active_at: now, api_key_hash: null, created_by: null};
+  const agent: Agent = {id, name, address, status: "active", created_at: now, last_active_at: now, api_key_hash: null, created_by: null, vault_address: null};
   getDb().prepare("INSERT INTO agents (id, name, address, status, created_at, last_active_at) VALUES (?, ?, ?, ?, ?, ?)").run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at);
   getDb().prepare("INSERT INTO policies (agent_id, max_per_tx, daily_cap, spent_today, expiry, active, last_reset_time) VALUES (?, 0, 0, 0, 0, 1, ?)").run(agent.id, now);
   addAuditLog("agent", agent.id, "agent_created", {name, address});
@@ -244,6 +266,7 @@ export function createUserAgent(
   createdBy: string,
   maxPerTx: number,
   dailyCap: number,
+  vaultAddress?: string,
 ): UserAgentResult {
   const apiKey = `spend_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
   const id = `agent_${randomUUID().slice(0, 8)}`;
@@ -257,16 +280,17 @@ export function createUserAgent(
     last_active_at: now,
     api_key_hash: hashApiKey(apiKey),
     created_by: createdBy,
+    vault_address: vaultAddress ?? null,
   };
   getDb()
     .prepare(
-      "INSERT INTO agents (id, name, address, status, created_at, last_active_at, api_key_hash, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO agents (id, name, address, status, created_at, last_active_at, api_key_hash, created_by, vault_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
-    .run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at, agent.api_key_hash, agent.created_by);
+    .run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at, agent.api_key_hash, agent.created_by, agent.vault_address);
   getDb()
     .prepare("INSERT INTO policies (agent_id, max_per_tx, daily_cap, spent_today, expiry, active, last_reset_time) VALUES (?, ?, ?, 0, 0, 1, ?)")
     .run(agent.id, maxPerTx, dailyCap, now);
-  addAuditLog("agent", agent.id, "agent_created_user", {name, address, created_by: createdBy, max_per_tx: maxPerTx, daily_cap: dailyCap});
+  addAuditLog("agent", agent.id, "agent_created_user", {name, address, created_by: createdBy, max_per_tx: maxPerTx, daily_cap: dailyCap, vault_address: vaultAddress ?? null});
   return {agent, apiKey};
 }
 
@@ -277,6 +301,46 @@ export function getAgentByApiKey(apiKey: string): Agent | undefined {
 
 export function getAgentByAddress(address: string): Agent | undefined {
   return getDb().prepare("SELECT * FROM agents WHERE lower(address) = lower(?)").get(address) as Agent | undefined;
+}
+
+// ---- Vaults ----
+
+export function createVaultRow(input: {
+  vaultAddress: string;
+  ownerAddress: string;
+  agentAddress: string;
+  usdcAddress: string;
+}): Vault {
+  const id = `vault_${randomUUID().slice(0, 8)}`;
+  const now = Math.floor(Date.now() / 1000);
+  const vault: Vault = {
+    id,
+    vault_address: input.vaultAddress,
+    owner_address: input.ownerAddress,
+    agent_address: input.agentAddress,
+    usdc_address: input.usdcAddress,
+    status: "active",
+    created_at: now,
+  };
+  getDb()
+    .prepare(
+      "INSERT INTO vaults (id, vault_address, owner_address, agent_address, usdc_address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run(vault.id, vault.vault_address, vault.owner_address, vault.agent_address, vault.usdc_address, vault.status, vault.created_at);
+  addAuditLog("vault", vault.id, "vault_created", {vault_address: vault.vault_address, owner: vault.owner_address, agent: vault.agent_address});
+  return vault;
+}
+
+export function getVaultByAddress(vaultAddress: string): Vault | undefined {
+  return getDb().prepare("SELECT * FROM vaults WHERE lower(vault_address) = lower(?)").get(vaultAddress) as Vault | undefined;
+}
+
+export function getVaultByAgentAddress(agentAddress: string): Vault | undefined {
+  return getDb().prepare("SELECT * FROM vaults WHERE lower(agent_address) = lower(?)").get(agentAddress) as Vault | undefined;
+}
+
+export function listVaults(): Vault[] {
+  return getDb().prepare("SELECT * FROM vaults ORDER BY created_at DESC").all() as Vault[];
 }
 
 // ---- Policies ----

@@ -67,7 +67,8 @@ export async function processPayment(input: PaymentInput): Promise<PaymentOutcom
   }
 
   try {
-    const result = await executeVaultSpend(CONTRACTS.vault, agentAddress, USDC, recipientAddr, BigInt(amount), actionId);
+    const vault = (agent.vault_address as Address | null) ?? CONTRACTS.vault;
+    const result = await executeVaultSpend(vault, agentAddress, USDC, recipientAddr, BigInt(amount), actionId);
 
     if (!result.success) {
       updateTransaction(tx.id, {

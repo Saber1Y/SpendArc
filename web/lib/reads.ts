@@ -63,10 +63,9 @@ async function sequential(tasks: (() => Promise<unknown>)[], gap = 250) {
   return results;
 }
 
-/** One batched load of every read the dashboard shows, keyed on the agent ADDRESS. Reads are serialized globally, spaced out, and retried on rate limits. */
-export async function readVaultState(agent: Address): Promise<VaultState> {
+/** One batched load of every read the dashboard shows, keyed on the agent ADDRESS and the vault that governs it. Reads are serialized globally, spaced out, and retried on rate limits. */
+export async function readVaultState(agent: Address, vault: Address): Promise<VaultState> {
   return enqueueRead(async () => {
-    const vault = CONTRACTS.vault;
     const [
       vaultBalance,
       policy,

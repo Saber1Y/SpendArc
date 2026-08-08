@@ -329,7 +329,7 @@ function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState
 
 function OwnerOverview() {
   const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
-  const {data: state, loading, error, refetch} = useVaultState(agent);
+  const {data: state, loading, error, refetch} = useVaultState(agent, CONTRACTS.vault);
   const {transactions, loading: txLoading} = useApiTransactions();
   const {agents} = useApiAgents();
   const {recipients, tokens} = useApiAllowlist(agents[0]?.id);
@@ -448,8 +448,8 @@ function OwnerOverview() {
   );
 }
 
-function UserAgentDashboard({agentId, agentAddress}: {agentId: string; agentAddress: Address}) {
-  const {data: state, loading, error, refetch} = useVaultState(agentAddress);
+function UserAgentDashboard({agentId, agentAddress, vaultAddress}: {agentId: string; agentAddress: Address; vaultAddress?: string | null}) {
+  const {data: state, loading, error, refetch} = useVaultState(agentAddress, (vaultAddress as Address | undefined) ?? CONTRACTS.vault);
   const {transactions, loading: txLoading} = useApiTransactions(agentId);
   const {recipients, tokens} = useApiAllowlist(agentId);
 
@@ -583,7 +583,7 @@ function UserOverview() {
     );
   }
 
-  return <UserAgentDashboard agentId={agent.id} agentAddress={agent.address as Address} />;
+  return <UserAgentDashboard agentId={agent.id} agentAddress={agent.address as Address} vaultAddress={agent.vault_address} />;
 }
 
 export default function DashboardPage() {

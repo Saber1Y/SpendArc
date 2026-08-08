@@ -28,6 +28,7 @@ contract SpendArcVault {
     }
 
     address public immutable owner;
+    address public immutable usdc;
     bool internal _locked;
 
     mapping(address agent => Policy) public policies;
@@ -75,12 +76,41 @@ contract SpendArcVault {
         _locked = false;
     }
 
-    constructor(address owner_) {
+    /// @notice Fully self-configuring constructor. Deploys an isolated vault owned by `owner_`
+    ///         with the platform executor pre-authorized (spend-within-policy only) and the owner's
+    ///         wallet pre-registered as the single agent (policy + USDC token + self target).
+    constructor(
+        address owner_,
+        address executor_,
+        address agent_,
+        uint128 maxPerTx_,
+        uint128 dailyCap_,
+        uint64 expiry_,
+        address usdc_,
+        address target_
+    ) {
         owner = owner_;
+        usdc = usdc_;
+        if (executor_ != address(0)) executors[executor_] = true;
+        if (usdc_ != address(0)) allowedToken[agent_][usdc_] = true;
+        if (target_ != address(0)) allowedTarget[agent_][target_] = true;
+        policies[agent_] = Policy({
+            maxPerTx: maxPerTx_,
+            dailyCap: dailyCap_,
+            spentToday: 0,
+            lastResetTime: uint64(block.timestamp),
+            expiry: expiry_,
+            active: true
+        });
     }
 
     receive() external payable {
         emit VaultFunded(msg.sender, msg.value);
+    }
+
+    /// @notice Fund the vault. Pulls `amount` USDC from the caller into the vault.
+    function deposit(uint256 amount) external {
+        IERC20(usdc).safeTransferFrom(msg.sender, address(this), amount);
     }
 
     // ---------------------------------------------------------------------

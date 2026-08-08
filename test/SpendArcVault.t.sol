@@ -16,19 +16,25 @@ contract SpendArcVaultTest is Test {
     address target = makeAddr("target");
 
     function setUp() public {
-        vm.prank(owner);
-        vault = new SpendArcVault(owner);
         usdc = new MockUSD();
-
+        vm.prank(owner);
+        vault = new SpendArcVault(owner, address(0), agent, 0, 0, 0, address(usdc), target);
         usdc.mint(address(vault), 1_000_000e6);
         vm.prank(owner);
         vault.setAgentPolicy(agent, 100e6, 500e6, 0, true);
         vm.prank(owner);
-        vault.setAllowedToken(agent, address(usdc), true);
-        vm.prank(owner);
-        vault.setAllowedTarget(agent, target, true);
-        vm.prank(owner);
         vault.setExecutor(executor, true);
+    }
+
+    function test_DepositPullsUSDCFromCaller() public {
+        usdc.mint(stranger, 1_000e6);
+        vm.prank(stranger);
+        usdc.approve(address(vault), 1_000e6);
+        uint256 before = usdc.balanceOf(address(vault));
+        vm.prank(stranger);
+        vault.deposit(250e6);
+        assertEq(usdc.balanceOf(address(vault)), before + 250e6);
+        assertEq(usdc.balanceOf(stranger), 750e6);
     }
 
     function test_ExecutorCanSpendForAgent() public {
