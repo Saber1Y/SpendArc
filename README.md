@@ -36,6 +36,10 @@ The product is self-serve:
    mirrored to the server. Each allowed service can carry its own **per-service budget** (per-tx and
    daily) enforced by the server fence on top of the vault's leash.
 
+Operators get a **fleet control plane** on top of the self-serve flow: every agent wallet in one view,
+per-agent leashes and balances, a full audit trail of every approved/blocked decision, and policy
+changes (lower a leash, revoke an agent) applied per agent from a single console.
+
 Every payment is enforced by **two independent fences**:
 
 - **Fence 1 - control plane (server).** Every payment request is checked against the app's policy store

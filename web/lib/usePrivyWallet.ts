@@ -31,6 +31,9 @@ export function usePrivyWalletClient() {
 
   const getClient = useCallback(async (): Promise<WalletClient | null> => {
     if (!connected || !wallet) return null;
+    if (String(wallet.chainId) !== String(arcChain.id)) {
+      await wallet.switchChain(arcChain.id);
+    }
     const provider = await wallet.getEthereumProvider();
     return createWalletClient({
       account: wallet.address as Address,

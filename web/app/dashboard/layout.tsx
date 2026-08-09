@@ -180,10 +180,6 @@ export default function DashboardLayout({
   const { address, isConnected } = useActiveAddress();
   const { isOwner, loading: roleLoading } = useRole();
 
-  if (ready && !authenticated) {
-    return <LoginGate />;
-  }
-
   const isUser = authenticated && !roleLoading && !isOwner;
 
   // Visitors only ever see their own pages. Operator pages redirect.
@@ -192,6 +188,10 @@ export default function DashboardLayout({
     const allowed = USER_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (!allowed) router.replace("/dashboard");
   }, [isUser, pathname, router]);
+
+  if (ready && !authenticated) {
+    return <LoginGate />;
+  }
 
   const navItems = isOwner ? NAV_ITEMS : USER_NAV_ITEMS;
   const secondaryItems = isOwner ? SECONDARY_ITEMS : USER_SECONDARY_ITEMS;

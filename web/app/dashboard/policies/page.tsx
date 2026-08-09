@@ -28,7 +28,7 @@ function PolicyStatus({active, expiry}: {active: boolean; expiry: bigint}) {
   );
 }
 
-function OnChainPolicyForm({agent, state, refetch}: {agent: Address; state: NonNullable<ReturnType<typeof useVaultState>["data"]>; refetch: () => void}) {
+function OnChainPolicyForm({agent, vault, state, refetch}: {agent: Address; vault: Address; state: NonNullable<ReturnType<typeof useVaultState>["data"]>; refetch: () => void}) {
   const [editing, setEditing] = useState(false);
   const [maxPerTx, setMaxPerTx] = useState(formatUsdc(state.policy.maxPerTx));
   const [dailyCap, setDailyCap] = useState(formatUsdc(state.policy.dailyCap));
@@ -54,7 +54,7 @@ function OnChainPolicyForm({agent, state, refetch}: {agent: Address; state: NonN
     const d = Number(days);
     const expiry = !d || d <= 0 ? 0n : BigInt(Math.floor(Date.now() / 1000) + d * 86400);
     write.run({
-      address: CONTRACTS.vault,
+      address: vault,
       abi: vaultAbi,
       functionName: "setAgentPolicy",
       args: [agent, mpt, dc, expiry, active],
@@ -92,7 +92,7 @@ function OnChainPolicyForm({agent, state, refetch}: {agent: Address; state: NonN
   );
 }
 
-function EmergencyRevoke({agent, isOwner, refetch}: {agent: Address; isOwner: boolean; refetch: () => void}) {
+function EmergencyRevoke({agent, vault, isOwner, refetch}: {agent: Address; vault: Address; isOwner: boolean; refetch: () => void}) {
   const [confirming, setConfirming] = useState(false);
   const write = useOwnerWrite(() => { refetch(); setConfirming(false); });
 
@@ -116,7 +116,7 @@ function EmergencyRevoke({agent, isOwner, refetch}: {agent: Address; isOwner: bo
         ) : (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => write.run({address: CONTRACTS.vault, abi: vaultAbi, functionName: "revokeAgent", args: [agent]})}
+              onClick={() => write.run({address: vault, abi: vaultAbi, functionName: "revokeAgent", args: [agent]})}
               disabled={write.pending}
               className="rounded-lg bg-state-blocked px-4 py-2 text-[12px] font-medium text-white hover:bg-state-blocked/90 disabled:opacity-50"
             >
@@ -135,10 +135,13 @@ function EmergencyRevoke({agent, isOwner, refetch}: {agent: Address; isOwner: bo
 
 function OwnerPolicies() {
   const {agents} = useApiAgents();
-  const agentAddress = (agents[0]?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
-  const agentId = agents[0]?.id ?? "";
-  const {data: state, loading, error, refetch} = useVaultState(agentAddress, CONTRACTS.vault);
   const {address, isConnected} = useActiveAddress();
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const selected = agents.find((a) => a.id === selectedAgentId) ?? agents[0];
+  const agentAddress = (selected?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
+  const agentId = selected?.id ?? "";
+  const vault = (selected?.vault_address as Address | null) ?? CONTRACTS.vault;
+  const {data: state, loading, error, refetch} = useVaultState(agentAddress, vault);
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
 
   return (
@@ -149,6 +152,24 @@ function OwnerPolicies() {
       </div>
 
       <div className="space-y-6">
+        <div className="kpi-card p-4 flex flex-wrap items-center gap-3" data-aos="fade-up">
+          <span className="text-[12px] text-text-muted">Manage policy for:</span>
+          <select
+            value={selectedAgentId}
+            onChange={(e) => setSelectedAgentId(e.target.value)}
+            className="rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent"
+          >
+            {agents.map((a) => (
+              <option key={a.id} value={a.id}>{a.name} ({a.id.slice(0, 12)}...)</option>
+            ))}
+          </select>
+          {selected && (
+            <span className="text-[11px] text-text-muted font-mono">
+              agent {truncateAddress(selected.address as `0x${string}`)} on vault {truncateAddress(vault)}
+            </span>
+          )}
+        </div>
+
         <div className="kpi-card p-6" data-aos="fade-up">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -196,7 +217,7 @@ function OwnerPolicies() {
                 <div className="text-[13px] font-mono text-text-primary">{truncateAddress(agentAddress)}</div>
               </div>
 
-              {isOwner && <OnChainPolicyForm agent={agentAddress} state={state} refetch={refetch} />}
+              {isOwner && <OnChainPolicyForm agent={agentAddress} vault={vault} state={state} refetch={refetch} />}
             </div>
           ) : null}
         </div>
@@ -213,7 +234,7 @@ function OwnerPolicies() {
           )}
         </div>
 
-        {state && <EmergencyRevoke agent={agentAddress} isOwner={isOwner} refetch={refetch} />}
+        {state && <EmergencyRevoke agent={agentAddress} vault={vault} isOwner={isOwner} refetch={refetch} />}
       </div>
     </div>
   );

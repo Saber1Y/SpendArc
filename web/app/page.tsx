@@ -3,6 +3,7 @@ import {Hero} from "@/components/marketing/Hero";
 import {ProblemSection} from "@/components/marketing/ProblemSection";
 import {TwoFences} from "@/components/marketing/TwoFences";
 import {HowItWorks} from "@/components/marketing/HowItWorks";
+import {ControlPlane} from "@/components/marketing/ControlPlane";
 import {LiveProof} from "@/components/marketing/LiveProof";
 import {CTASection} from "@/components/marketing/CTASection";
 import {SiteFooter} from "@/components/marketing/SiteFooter";
@@ -15,6 +16,7 @@ export default function Home() {
       <ProblemSection />
       <TwoFences />
       <HowItWorks />
+      <ControlPlane />
       <LiveProof />
       <CTASection />
       <SiteFooter />

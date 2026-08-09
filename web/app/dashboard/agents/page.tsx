@@ -3,7 +3,7 @@
 import {useCallback, useEffect, useState} from "react";
 import {usePrivy} from "@privy-io/react-auth";
 import {encodeFunctionData, type Address} from "viem";
-import {useApiAgents, useVaultState} from "@/lib/hooks";
+import {useApiAgents, useVaultState, type ApiAgent} from "@/lib/hooks";
 import {CONTRACTS, factoryAbi, usdcAbi, vaultAbi} from "@/lib/contracts";
 import {publicClient} from "@/lib/chain";
 import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
@@ -79,6 +79,12 @@ function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name
       </div>
     </div>
   );
+}
+
+function AgentCardWithState({agent, delay = 0}: {agent: ApiAgent; delay?: number}) {
+  const vault = (agent.vault_address as Address | null) ?? CONTRACTS.vault;
+  const {data: state, loading} = useVaultState(agent.address as Address, vault);
+  return <AgentCard agent={agent} state={state} loading={loading} delay={delay} />;
 }
 
 function VaultSummary({state, loading}: {state: ReturnType<typeof useVaultState>["data"]; loading: boolean}) {
@@ -633,7 +639,7 @@ export default function AgentsPage() {
       <div className="p-8 max-w-[1200px] mx-auto">
         <div className="mb-6" data-aos="fade-up">
           <h1 className="text-[20px] font-semibold text-text-primary tracking-tight">Agents</h1>
-          <p className="text-[13px] text-text-muted mt-1">Agent wallet management and authorization status</p>
+          <p className="text-[13px] text-text-muted mt-1">Every agent wallet in the fleet - live vault balances and on-chain leash</p>
         </div>
 
         <div className="space-y-6">
@@ -642,7 +648,7 @@ export default function AgentsPage() {
             null
           ) : (
             agents.map((agent, i) => (
-              <AgentCard key={agent.id} agent={agent} state={state} loading={loading} delay={i * 100} />
+              <AgentCardWithState key={agent.id} agent={agent} delay={i * 100} />
             ))
           )}
           {firstAgent && <VaultSummary state={state} loading={loading} />}
