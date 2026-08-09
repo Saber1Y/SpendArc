@@ -192,7 +192,8 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
         })) as Address;
         if (!cancelled) setVaultAddress(vault === ZERO_ADDRESS ? null : vault);
       } catch {
-        if (!cancelled) setVaultAddress(null);
+        // keep the last-known vault on RPC hiccups - dropping it would hide the
+        // register section mid-flow for no reason
       } finally {
         if (!cancelled) setVaultChecked(true);
       }
@@ -225,6 +226,21 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
       return false;
     }
     return true;
+  };
+
+  /** Parse a fetch response body safely. Server errors (timeout, crash, proxy) can return an
+   *  empty body - surfacing a useful message beats "Unexpected end of JSON input". */
+  const parseResponse = async (res: Response): Promise<{ok: boolean; data: Record<string, unknown>; status: number}> => {
+    const text = await res.text();
+    let data: Record<string, unknown> = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = {message: text.slice(0, 200)};
+      }
+    }
+    return {ok: res.ok, data, status: res.status};
   };
 
   const createVault = async () => {
@@ -272,9 +288,9 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
         headers: {"content-type": "application/json"},
         body: JSON.stringify({address}),
       });
-      const d = await res.json();
-      if (!res.ok) {
-        setError(d.message ?? d.error ?? "Faucet request failed");
+      const {ok, data, status} = await parseResponse(res);
+      if (!ok) {
+        setError((data.message ?? data.error ?? `Faucet request failed (HTTP ${status})`) as string);
         return;
       }
       await refreshBalances();
@@ -344,15 +360,15 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
         headers: {"content-type": "application/json"},
         body: JSON.stringify({name: name.trim(), address, vaultAddress}),
       });
-      const d = await res.json();
-      if (!res.ok) {
-        setError(d.message ?? d.error ?? "Failed to register");
+      const {ok, data} = await parseResponse(res);
+      if (!ok) {
+        setError((data.message ?? data.error ?? "Failed to register") as string);
       } else {
-        setApiKey(d.apiKey);
-        setAgentId(d.agent.id);
-        setRegisteredAddress(d.agent.address);
-        setMaxPerTxUsdc((d.policy?.maxPerTx ?? 5_000_000) / 1_000_000);
-        setDailyCapUsdc((d.policy?.dailyCap ?? 10_000_000) / 1_000_000);
+        setApiKey(data.apiKey as string);
+        setAgentId((data.agent as {id: string})?.id ?? "");
+        setRegisteredAddress((data.agent as {address: string})?.address ?? "");
+        setMaxPerTxUsdc(((data.policy as {maxPerTx: number})?.maxPerTx ?? 5_000_000) / 1_000_000);
+        setDailyCapUsdc(((data.policy as {dailyCap: number})?.dailyCap ?? 10_000_000) / 1_000_000);
         setName("");
         onCreated();
       }

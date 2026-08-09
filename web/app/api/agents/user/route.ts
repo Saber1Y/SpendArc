@@ -20,6 +20,16 @@ const DEFAULT_DAILY_CAP = DEFAULT_DAILY_CAP_USDC * 1_000_000; // 10 USDC
  * Returns the agent's API key exactly once (stored hashed server-side).
  */
 export async function POST(req: NextRequest) {
+  try {
+    return await handle(req);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[agents/user] unhandled error:", msg);
+    return NextResponse.json({error: "INTERNAL_ERROR", message: msg.slice(0, 300)}, {status: 500});
+  }
+}
+
+async function handle(req: NextRequest) {
   let body: {name?: string; address?: string; vaultAddress?: string};
   try {
     body = await req.json();

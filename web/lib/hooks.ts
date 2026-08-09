@@ -93,20 +93,31 @@ export interface ApiAgentRunEvent {
   created_at: number;
 }
 
-/** Batched vault-state read. Refetches on window focus + manual + post-action only (no interval). */
+/** Batched vault-state read. Refetches on window focus + manual + post-action only (no interval).
+ *  Stale-while-revalidate: a background refetch keeps showing the last data instead of flipping
+ *  to a full loading skeleton, so wallet popups (which steal/restore focus) don't make the page
+ *  re-load every time. */
 export function useVaultState(agent: Address, vault: Address) {
   const [state, setState] = useState<AsyncState<VaultState>>({data: undefined, loading: true, error: undefined});
   const inflight = useRef<Promise<void> | null>(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const refetch = useCallback(async () => {
     if (inflight.current) return inflight.current;
-    setState((s) => ({...s, loading: true}));
+    setState((s) => (s.data ? s : {...s, loading: true}));
     inflight.current = (async () => {
       try {
         const data = await readVaultState(agent, vault);
-        setState({data, loading: false, error: undefined});
+        if (mounted.current) setState({data, loading: false, error: undefined});
       } catch (e) {
-        setState((s) => ({data: s.data, loading: false, error: e as Error}));
+        if (mounted.current) setState((s) => ({data: s.data, loading: false, error: e as Error}));
       }
     })();
     try {
