@@ -1,7 +1,6 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import Link from "next/link";
 import {isAddress, type Address} from "viem";
 import {CONTRACTS, vaultAbi} from "@/lib/contracts";
 import {useVaultState, useApiAgents, useApiAllowlist} from "@/lib/hooks";
@@ -11,6 +10,8 @@ import {isSameAddress, formatUsdc, formatExpiry, truncateAddress} from "@/lib/fo
 import {useOwnerWrite} from "@/lib/useOwnerWrite";
 import {waitForReceiptRaw} from "@/lib/txwait";
 import {Field, TextInput, Toggle} from "@/components/ui/Input";
+import {PageLoader} from "@/components/ui/PageLoader";
+import {AgentOnboarding} from "@/components/dashboard/AgentOnboarding";
 import {MAX_PER_TX_USDC, MAX_DAILY_CAP_USDC} from "@/lib/policyLimits";
 
 function PolicyStatus({active, expiry}: {active: boolean; expiry: bigint}) {
@@ -687,28 +688,13 @@ function UserPolicyPage() {
   const {agent, loading} = useMyAgent();
 
   if (loading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="flex items-center gap-2 text-[13px] text-text-muted">
-          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-          Loading your policy...
-        </div>
-      </div>
-    );
+    return <PageLoader label="Loading your policy..." fill />;
   }
 
   if (!agent) {
     return (
       <div className="p-8 max-w-[1200px] mx-auto">
-        <div className="kpi-card p-12 text-center" data-aos="fade-up">
-          <div className="text-[15px] font-semibold text-text-primary mb-1">No agent registered</div>
-          <div className="text-[13px] text-text-muted mb-6">
-            Register this wallet as an agent to get a vault-enforced spending leash.
-          </div>
-          <Link href="/dashboard/agents" className="inline-block rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:bg-accent-hover">
-            Register your agent
-          </Link>
-        </div>
+        <AgentOnboarding />
       </div>
     );
   }
@@ -776,14 +762,7 @@ export default function PoliciesPage() {
   const {isOwner, loading} = useRole();
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex items-center gap-2 text-[13px] text-text-muted">
-          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-          Resolving role...
-        </div>
-      </div>
-    );
+    return <PageLoader label="Resolving your role..." fill />;
   }
 
   return isOwner ? <OwnerPolicies /> : <UserPolicyPage />;

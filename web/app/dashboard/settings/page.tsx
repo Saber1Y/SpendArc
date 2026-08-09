@@ -7,6 +7,7 @@ import {useActiveAddress} from "@/lib/usePrivyWallet";
 import {useRole, useMyAgent} from "@/lib/useRole";
 import {CONTRACTS} from "@/lib/contracts";
 import {explorerAddress} from "@/lib/chain";
+import {PageLoader} from "@/components/ui/PageLoader";
 
 type Health = {label: string; ok: boolean; detail?: string}[];
 
@@ -319,14 +320,7 @@ export default function SettingsPage() {
   const {isOwner, loading} = useRole();
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex items-center gap-2 text-[13px] text-text-muted">
-          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-          Resolving role...
-        </div>
-      </div>
-    );
+    return <PageLoader label="Resolving your role..." fill />;
   }
 
   return isOwner ? <OwnerSettings /> : <UserSettings />;

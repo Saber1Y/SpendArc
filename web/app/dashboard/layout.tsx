@@ -5,10 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useActiveAddress } from "@/lib/usePrivyWallet";
-import { useRole } from "@/lib/useRole";
+import { RoleProvider, useRole } from "@/lib/useRole";
 import { truncateAddress } from "@/lib/format";
 import { OwnerConnectButton } from "@/components/dashboard/OwnerConnectButton";
 import { LoginGate } from "@/components/dashboard/LoginGate";
+import { PageLoader } from "@/components/ui/PageLoader";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: "grid" },
@@ -174,6 +175,18 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <RoleProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </RoleProvider>
+  );
+}
+
+function DashboardShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
@@ -272,12 +285,7 @@ export default function DashboardLayout({
       {/* Main content */}
       <main className="ml-[var(--sidebar-width)] flex-1">
         {roleLoading ? (
-          <div className="flex h-screen items-center justify-center">
-            <div className="flex items-center gap-2 text-[13px] text-text-muted">
-              <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-              Resolving role...
-            </div>
-          </div>
+          <PageLoader label="Resolving your role..." fill />
         ) : (
           children
         )}

@@ -1,12 +1,14 @@
 "use client";
 
 import {useState} from "react";
-import Link from "next/link";
 import {useApiTransactions, useApiAgents} from "@/lib/hooks";
 import {truncateAddress, truncateHash} from "@/lib/format";
 import {explorerTx} from "@/lib/chain";
 import {StateBadge} from "@/components/ui/StateBadge";
 import {TxChip} from "@/components/ui/Chip";
+import {PageLoader} from "@/components/ui/PageLoader";
+import {Spinner} from "@/components/ui/Spinner";
+import {AgentOnboarding} from "@/components/dashboard/AgentOnboarding";
 import {TransactionTable} from "@/components/dashboard/TransactionTable";
 import {useRole, useMyAgent} from "@/lib/useRole";
 
@@ -156,7 +158,7 @@ function RunAgentSection({agentId, refetch}: {agentId: string; refetch: () => vo
       )}
       {busy ? (
         <div className="mt-4 flex items-center gap-2 text-[12px] text-text-muted">
-          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+          <Spinner className="h-3.5 w-3.5" />
           Submitting payment request...
         </div>
       ) : null}
@@ -238,28 +240,13 @@ function UserSpending() {
   const {agent, loading} = useMyAgent();
 
   if (loading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="flex items-center gap-2 text-[13px] text-text-muted">
-          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-          Loading your agent...
-        </div>
-      </div>
-    );
+    return <PageLoader label="Loading your agent..." fill />;
   }
 
   if (!agent) {
     return (
       <div className="p-8 max-w-[1200px] mx-auto">
-        <div className="kpi-card p-12 text-center" data-aos="fade-up">
-          <div className="text-[15px] font-semibold text-text-primary mb-1">No agent registered</div>
-          <div className="text-[13px] text-text-muted mb-6">
-            Register this wallet as an agent first - then you can request spending for it.
-          </div>
-          <Link href="/dashboard/agents" className="inline-block rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-white hover:bg-accent-hover">
-            Register your agent
-          </Link>
-        </div>
+        <AgentOnboarding />
       </div>
     );
   }
@@ -271,14 +258,7 @@ export default function SpendingPage() {
   const {isOwner, loading} = useRole();
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex items-center gap-2 text-[13px] text-text-muted">
-          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-          Resolving role...
-        </div>
-      </div>
-    );
+    return <PageLoader label="Resolving your role..." fill />;
   }
 
   return isOwner ? <OwnerSpending /> : <UserSpending />;
