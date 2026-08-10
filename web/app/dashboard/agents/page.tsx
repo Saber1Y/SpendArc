@@ -15,6 +15,7 @@ import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
 import {DEFAULT_MAX_PER_TX_USDC, DEFAULT_DAILY_CAP_USDC} from "@/lib/policyLimits";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
+const MAX_ALLOWANCE = (2n ** 256n) - 1n;
 
 function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name: string; address: string}; state: ReturnType<typeof useVaultState>["data"]; loading: boolean; delay?: number}) {
   return (
@@ -190,7 +191,24 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
           functionName: "vaultOf",
           args: [address],
         })) as Address;
-        if (!cancelled) setVaultAddress(vault === ZERO_ADDRESS ? null : vault);
+        if (!cancelled) {
+          const found = vault !== ZERO_ADDRESS;
+          setVaultAddress(found ? vault : null);
+          if (found) {
+            try {
+              const [wb, vb] = await Promise.all([
+                publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [address]}),
+                publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]}),
+              ]);
+              if (!cancelled) {
+                setWalletUsdc(wb);
+                setVaultBalance(vb);
+              }
+            } catch {
+              // balances are advisory - leave last known values
+            }
+          }
+        }
       } catch {
         // keep the last-known vault on RPC hiccups - dropping it would hide the
         // register section mid-flow for no reason
@@ -309,10 +327,9 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
         setError("Create your vault first.");
         return;
       }
-      const amount = BigInt(Math.round(Number(depositUsdc) * 1_000_000));
       const ok = await signAndWait(
         CONTRACTS.usdc,
-        encodeFunctionData({abi: usdcAbi, functionName: "approve", args: [vaultAddress, amount]}),
+        encodeFunctionData({abi: usdcAbi, functionName: "approve", args: [vaultAddress, MAX_ALLOWANCE]}),
       );
       if (ok) setApproved(true);
     } catch (e) {
@@ -332,6 +349,23 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
         return;
       }
       const amount = BigInt(Math.round(Number(depositUsdc) * 1_000_000));
+      if (amount <= 0n) {
+        setError("Enter a deposit amount greater than 0.");
+        return;
+      }
+      // Confirm USDC is approved for the vault before depositing, so a missing
+      // approval surfaces as a clear message instead of an opaque on-chain revert.
+      const allowance = (await publicClient.readContract({
+        address: CONTRACTS.usdc,
+        abi: usdcAbi,
+        functionName: "allowance",
+        args: [address as Address, vaultAddress],
+      })) as bigint;
+      if (allowance < amount) {
+        setError("Approve USDC for the vault first, then deposit.");
+        setApproved(false);
+        return;
+      }
       const ok = await signAndWait(
         vaultAddress,
         encodeFunctionData({abi: vaultAbi, functionName: "deposit", args: [amount]}),
@@ -434,9 +468,7 @@ Task: introspect your leash first, then make a test payment of 0.5 USDC to my wa
             Your wallet gets its own on-chain vault, deposits its own USDC, and the agent spends under a leash you set.
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent-light/60 text-[12px] font-medium text-accent shrink-0">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Booth demo
-        </span>
+   
       </div>
 
       {apiKey ? (
