@@ -1,18 +1,37 @@
-import Database from "better-sqlite3";
+import Database from "libsql";
 import path from "path";
 import {randomUUID, createHash} from "crypto";
 
+interface LibsqlOptions extends Database.Options {
+  authToken?: string;
+}
+
+/**
+ * Database driver selection:
+ *  - TURSO_DATABASE_URL set (deployed / hosted): connect to a remote libSQL
+ *    (Turso) database using the libsql client, which is a drop-in for
+ *    better-sqlite3. Local-file SQLite cannot persist on Vercel serverless,
+ *    so the deployed app uses the hosted DB.
+ *  - otherwise (local dev): a plain SQLite file under web/data/, as before.
+ */
+const TURSO_URL = process.env.TURSO_DATABASE_URL ?? "";
+const TURSO_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN ?? "";
 const DB_PATH = path.join(process.cwd(), "data", "spendarc.db");
+const isRemote = TURSO_URL.length > 0;
 
 let _db: Database.Database | null = null;
 
 function getDb(): Database.Database {
   if (!_db) {
-    const fs = require("fs");
-    const dir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true});
-    _db = new Database(DB_PATH);
-    _db.pragma("journal_mode = WAL");
+    if (isRemote) {
+      _db = new Database(TURSO_URL, {authToken: TURSO_AUTH_TOKEN} as LibsqlOptions);
+    } else {
+      const fs = require("fs");
+      const dir = path.dirname(DB_PATH);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true});
+      _db = new Database(DB_PATH);
+      _db.pragma("journal_mode = WAL");
+    }
     _db.pragma("foreign_keys = ON");
     initSchema(_db);
   }
