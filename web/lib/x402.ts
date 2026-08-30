@@ -2,16 +2,18 @@ import {createPublicClient, http, type Hex} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
 import {wrapFetchWithPayment, x402Client, x402HTTPClient, type HTTPResourceResponse} from "@x402/fetch";
 import {ExactEvmScheme, toClientEvmSigner} from "@x402/evm";
+import {ARC_CHAIN_ID, ARC_RPC_URL, USDC_ADDRESS, arcChain} from "./arc";
 
-const BASE_MAINNET = "eip155:8453";
-const BASE_SEPOLIA = "eip155:84532";
+type Caip2 = `${string}:${string}`;
+/** CAIP-2 network id of the SpendArc settlement chain (Arc testnet by default). */
+export const ARC_NETWORK: Caip2 = `eip155:${ARC_CHAIN_ID}`;
 
 export interface PayX402Options {
   /** Per-request USDC ceiling enforced client-side before settlement. Defaults to $1. */
   maxAmountUsd?: number | string;
   /** Optional client-supplied key; replaying the same key + credential returns the original result instead of charging again. */
   idempotencyKey?: string;
-  /** Base RPC override. Defaults to BASE_RPC_URL env or the public Base mainnet RPC. */
+  /** Arc RPC override. Defaults to the app's ARC_RPC_URL. */
   rpcUrl?: string;
   /** Additional request headers merged over `init.headers`. */
   headers?: Record<string, string>;
@@ -26,9 +28,9 @@ export interface PayX402Result extends HTTPResourceResponse {
  * Call an x402-protected endpoint and pay for it with the SpendArc executor key.
  *
  * The executor signs an EIP-3009 authorization that lets the facilitator pull USDC
- * on Base (mainnet or sepolia). Both the host's 402 PAYMENT-REQUIRED declaration and
- * the `Idempotency-Key` header are handled by the wrapped fetch; settlement is
- * verified via the response's PAYMENT-RESPONSE decoding.
+ * on the SpendArc settlement chain (Arc testnet by default). Both the host's 402
+ * PAYMENT-REQUIRED declaration and the `Idempotency-Key` header are handled by the
+ * wrapped fetch; settlement is verified via the response's PAYMENT-RESPONSE decoding.
  *
  * No agentcash, no third-party wallet manager: the payment identity IS the SpendArc
  * executor account, derived from EXECUTOR_PRIVATE_KEY.
@@ -41,19 +43,17 @@ export async function payX402(
   const key = process.env.EXECUTOR_PRIVATE_KEY;
   if (!key) throw new Error("EXECUTOR_PRIVATE_KEY not configured");
 
-  const rpcUrl = opts.rpcUrl ?? process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
+  const rpcUrl = opts.rpcUrl ?? ARC_RPC_URL;
   const account = privateKeyToAccount(key as Hex);
-  const publicClient = createPublicClient({transport: http(rpcUrl)});
+  const publicClient = createPublicClient({chain: arcChain, transport: http(rpcUrl)});
   const signer = toClientEvmSigner(account, publicClient);
   const scheme = new ExactEvmScheme(signer, {rpcUrl});
 
   const client = x402Client.fromConfig({
-    schemes: [
-      {network: BASE_MAINNET, client: scheme},
-      {network: BASE_SEPOLIA, client: scheme},
-    ],
+    schemes: [{network: ARC_NETWORK as Caip2, client: scheme}],
     spendControls: {
       maxAmountPerPayment: typeof opts.maxAmountUsd === "string" ? opts.maxAmountUsd : `$${opts.maxAmountUsd ?? 1}`,
+      allowedAssets: [{network: ARC_NETWORK as Caip2, asset: USDC_ADDRESS}],
     },
   });
 
