@@ -65,9 +65,15 @@ RPC `https://rpc.mainnet.arc.io` · Explorer `https://explorer.arc.io`
 | **SpendArcVault (reference)** | [`0x8D80cEEe03C86de7d90478c5D7599004f375Ef6F`](https://explorer.arc.io/address/0x8D80cEEe03C86de7d90478c5D7599004f375Ef6F) |
 | **USDC (native ERC-20 interface)** | [`0x3600000000000000000000000000000000000000`](https://explorer.arc.io/address/0x3600000000000000000000000000000000000000) |
 
-Every visitor gets their own vault from the factory. See **[MAINNET.md](./MAINNET.md)** for the deploy
-steps and for recording the live factory address, create-vault tx, deposit tx, and an approved +
-blocked spend pair once deployed.
+Every visitor gets their own vault from the factory. See **[MAINNET.md](./MAINNET.md)** for the deploy steps.
+
+### Proven on Arc mainnet
+
+A live same-agent, one-variable proof against the reference vault's $1/tx leash - an approved spend and a blocked spend differing only in amount:
+
+- **Approved** (0.5 USDC, under the $1 per-tx cap - `AgentActionApproved`, 0.5 USDC moved): tx [`0x05796ab9…`](https://explorer.arc.io/tx/0x05796ab956817e1ba45a0cd16dfe931b29e15475f862a8256f34aa37a6fa374a)
+- **Blocked by policy** (2 USDC vs the $1 cap - `AgentActionBlocked`, reason `exceeds maxPerTx`, nothing moved): tx [`0xbb922fda…`](https://explorer.arc.io/tx/0xbb922fda93c6f6cc12e8422864576c5104ccb8c8271721ca06a4d7421806f2ce)
+- **Executor authorization** (`setExecutor`): tx [`0x9c9081d8…`](https://explorer.arc.io/tx/0x9c9081d8cbde6a1b2110f9bf0a69d63155826470d553e92520f41ae3219615e4)
 
 ## Try it in your own wallet
 
