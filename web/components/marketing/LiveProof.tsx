@@ -96,7 +96,7 @@ export function LiveProof() {
             Same agent. One variable.
           </h2>
           <p className="mt-5 text-body text-text-secondary">
-            Two real actions on Arc testnet - an approved spend moved on-chain, then a
+            Two real actions on Arc mainnet - an approved spend moved on-chain, then a
             blocked attempt rejected by the policy. Live reads of the most recent activity
             from the SpendArc vaults, not a simulation.
           </p>

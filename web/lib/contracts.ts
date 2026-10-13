@@ -1,11 +1,11 @@
 import {parseAbi, type Address} from "viem";
-import {USDC_ADDRESS} from "./arc";
+import {ACTIVE_NETWORK} from "./networks";
 
-/** SpendArc deployment on Arc testnet. Addresses are populated after deployment. */
+/** Contract addresses for the viewer's active network (see networks.ts). Client-side use. */
 export const CONTRACTS = {
-  usdc: USDC_ADDRESS,
-  vault: (process.env.NEXT_PUBLIC_VAULT_ADDRESS || "0x0000000000000000000000000000000000000000") as Address,
-  factory: (process.env.NEXT_PUBLIC_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000") as Address,
+  usdc: ACTIVE_NETWORK.usdc,
+  vault: ACTIVE_NETWORK.vault,
+  factory: ACTIVE_NETWORK.factory,
 } as const satisfies Record<string, Address>;
 
 export const USDC_DECIMALS = 6;

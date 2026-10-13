@@ -7,6 +7,8 @@ import {useApiAgents, useVaultState, type ApiAgent} from "@/lib/hooks";
 import {CONTRACTS, factoryAbi, usdcAbi, vaultAbi} from "@/lib/contracts";
 import {publicClient} from "@/lib/chain";
 import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
+import {buildRegistrationMessage} from "@/lib/authMessage";
+import {getActiveNetworkKey} from "@/lib/networks";
 import {waitForReceiptRaw} from "@/lib/txwait";
 import {formatUsdc, truncateAddress, isSameAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
@@ -297,28 +299,6 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
     }
   };
 
-  const fund = async () => {
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/fund", {
-        method: "POST",
-        headers: {"content-type": "application/json"},
-        body: JSON.stringify({address}),
-      });
-      const {ok, data, status} = await parseResponse(res);
-      if (!ok) {
-        setError((data.message ?? data.error ?? `Faucet request failed (HTTP ${status})`) as string);
-        return;
-      }
-      await refreshBalances();
-    } catch (e) {
-      setError((e as Error).message.slice(0, 300));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const approveUsdc = async () => {
     setSaving(true);
     setError("");
@@ -389,10 +369,26 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
     setApiKey("");
     setPromptCopied(false);
     try {
+      // Prove wallet ownership before the server mints an API key: sign the canonical
+      // registration challenge in the connected wallet and send the signature with the request.
+      const client = await getClient();
+      if (!client) {
+        setError("Connect your wallet to register.");
+        return;
+      }
+      const issuedAt = Date.now();
+      const message = buildRegistrationMessage({address, vaultAddress, issuedAt});
+      let signature: string;
+      try {
+        signature = await client.signMessage({account: client.account!, message});
+      } catch {
+        setError("Signature rejected in your wallet.");
+        return;
+      }
       const res = await fetch("/api/agents/user", {
         method: "POST",
         headers: {"content-type": "application/json"},
-        body: JSON.stringify({name: name.trim(), address, vaultAddress}),
+        body: JSON.stringify({name: name.trim(), address, vaultAddress, signature, issuedAt, network: getActiveNetworkKey()}),
       });
       const {ok, data} = await parseResponse(res);
       if (!ok) {
@@ -595,18 +591,11 @@ Task: introspect your leash first, then make a test payment of 0.5 USDC to my wa
               </div>
 
               <div>
-                <div className="text-[12px] font-medium text-text-primary mb-1">Step 2 - Fund and deposit</div>
+                <div className="text-[12px] font-medium text-text-primary mb-1">Step 2 - Deposit USDC</div>
                 <div className="text-[11px] text-text-muted mb-3">
-                  Grab testnet gas + USDC, then deposit USDC into your vault. Your agent can only spend what is in the vault.
+                  Approve and deposit USDC into your vault. Your agent can only ever spend what is in the vault.
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={fund}
-                    disabled={saving}
-                    className="rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-medium text-text-primary hover:border-accent disabled:opacity-50"
-                  >
-                    {saving ? "Funding..." : "Get testnet funds (0.05 gas + 3 USDC)"}
-                  </button>
                   <span className="text-[11px] text-text-muted tabular-nums">Wallet: {formatUsdc(walletUsdc)} USDC</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 mt-3">

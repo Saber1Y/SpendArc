@@ -1,20 +1,19 @@
-import {defineChain, createPublicClient, createWalletClient, http} from "viem";
+import {createPublicClient, createWalletClient, http} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
+import {ACTIVE_NETWORK, chainFor} from "./networks";
 
-export const ARC_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || "5042002");
-export const ARC_RPC_URL = process.env.NEXT_PUBLIC_ARC_RPC_URL || "https://rpc.testnet.arc.network";
-export const ARC_EXPLORER_URL = process.env.NEXT_PUBLIC_ARC_EXPLORER_URL || "https://testnet.arcscan.app";
+/**
+ * Active-network view of the Arc config, for client code. The active network is the viewer's
+ * cookie-selected network (see networks.ts), defaulting to mainnet. Server code that must act on a
+ * specific agent's network uses serverChain.ts instead of these module-level constants.
+ */
+export const ARC_CHAIN_ID = ACTIVE_NETWORK.chainId;
+export const ARC_RPC_URL = ACTIVE_NETWORK.rpcUrl;
+export const ARC_EXPLORER_URL = ACTIVE_NETWORK.explorerUrl;
+export const IS_MAINNET = !ACTIVE_NETWORK.testnet;
+export const USDC_ADDRESS = ACTIVE_NETWORK.usdc;
 
-export const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_ADDRESS || "0x3600000000000000000000000000000000000000") as `0x${string}`;
-
-export const arcChain = defineChain({
-  id: ARC_CHAIN_ID,
-  name: "Arc Testnet",
-  nativeCurrency: {name: "USDC", symbol: "USDC", decimals: 6},
-  rpcUrls: {default: {http: [ARC_RPC_URL]}},
-  blockExplorers: {default: {name: "ArcScan", url: ARC_EXPLORER_URL}},
-  testnet: true,
-});
+export const arcChain = chainFor(ACTIVE_NETWORK);
 
 export const arcPublicClient = createPublicClient({chain: arcChain, transport: http(ARC_RPC_URL)});
 

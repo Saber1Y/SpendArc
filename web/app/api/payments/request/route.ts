@@ -2,7 +2,7 @@ import {NextRequest, NextResponse} from "next/server";
 import type {Address} from "viem";
 import {CONTRACTS} from "@/lib/contracts";
 import {processPayment} from "@/lib/payments";
-import {getAgentByApiKey} from "@/lib/db";
+import {requireAgentApiKey} from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,15 +27,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({error: "MISSING_FIELDS", message: "agentId, recipient, amount, token required."}, {status: 400});
   }
 
-  // Agent-facing auth: a Bearer API key, when present, must belong to the agent.
-  const auth = req.headers.get("authorization") ?? "";
-  const apiKey = auth.replace(/^Bearer\s+/i, "").trim();
-  if (apiKey) {
-    const keyed = getAgentByApiKey(apiKey);
-    if (!keyed || keyed.id !== agentId) {
-      return NextResponse.json({error: "INVALID_API_KEY", message: "API key does not match agentId"}, {status: 401});
-    }
-  }
+  // Agent-facing auth: a valid Bearer API key belonging to this agent is mandatory. Without it
+  // the request never reaches the payment pipeline, so knowing an agentId alone grants nothing.
+  const authed = requireAgentApiKey(req, agentId);
+  if ("error" in authed) return authed.error;
 
   const amount = Math.round(Number(amountStr) * 1_000_000);
   if (isNaN(amount) || amount <= 0) {

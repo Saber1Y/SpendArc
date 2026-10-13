@@ -8,6 +8,7 @@ import {useRole, useMyAgent} from "@/lib/useRole";
 import {CONTRACTS} from "@/lib/contracts";
 import {explorerAddress} from "@/lib/chain";
 import {PageLoader} from "@/components/ui/PageLoader";
+import {NetworkCard} from "@/components/dashboard/NetworkCard";
 
 type Health = {label: string; ok: boolean; detail?: string}[];
 
@@ -103,20 +104,7 @@ function OwnerSettings() {
       <div className="space-y-6">
         {/* Network */}
         <SettingsSection title="Network">
-          <div className="space-y-2 text-[13px]">
-            <div className="flex items-center justify-between">
-              <span className="text-text-muted">Chain</span>
-              <span className="text-text-primary font-medium">Arc Testnet (5042002)</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-text-muted">RPC</span>
-              <span className="text-text-primary font-mono text-[12px] truncate max-w-[350px]">https://rpc.testnet.arc.network</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-text-muted">Explorer</span>
-              <span className="text-text-primary font-mono text-[12px] truncate max-w-[350px]">https://testnet.arcscan.app</span>
-            </div>
-          </div>
+          <NetworkCard />
         </SettingsSection>
 
         {/* Vault */}
@@ -232,20 +220,7 @@ function UserSettings() {
 
       <div className="space-y-6">
         <SettingsSection title="Network">
-          <div className="space-y-2 text-[13px]">
-            <div className="flex items-center justify-between">
-              <span className="text-text-muted">Chain</span>
-              <span className="text-text-primary font-medium">Arc Testnet (5042002)</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-text-muted">RPC</span>
-              <span className="text-text-primary font-mono text-[12px] truncate max-w-[350px]">https://rpc.testnet.arc.network</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-text-muted">Explorer</span>
-              <span className="text-text-primary font-mono text-[12px] truncate max-w-[350px]">https://testnet.arcscan.app</span>
-            </div>
-          </div>
+          <NetworkCard />
         </SettingsSection>
 
         <SettingsSection title="Wallet" delay={60}>

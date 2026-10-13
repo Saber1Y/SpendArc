@@ -2,6 +2,7 @@ import {NextRequest, NextResponse} from "next/server";
 import type {Address} from "viem";
 import {getAgent, updatePolicy} from "@/lib/db";
 import {getVaultPolicy} from "@/lib/executor";
+import {getNetwork} from "@/lib/networks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
 
   let onchain;
   try {
-    onchain = await getVaultPolicy(agent.vault_address as Address, agent.address as Address);
+    onchain = await getVaultPolicy(getNetwork(agent.network as "mainnet" | "testnet" | null), agent.vault_address as Address, agent.address as Address);
   } catch {
     return NextResponse.json({error: "VAULT_READ_FAILED", message: "Could not read the vault policy on-chain."}, {status: 502});
   }

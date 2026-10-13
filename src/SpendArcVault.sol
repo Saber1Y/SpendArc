@@ -85,7 +85,7 @@ contract SpendArcVault {
     error NotOwner();
     error NotAuthorized();
     error Reentrancy();
-    error NativeTransferFailed();
+    error UnexpectedCallData();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -241,6 +241,11 @@ contract SpendArcVault {
         internal
         returns (bool approved)
     {
+        // The vault only moves ERC20 value (USDC on Arc). It never performs an arbitrary
+        // call on behalf of an agent, so any attached calldata is rejected outright. This
+        // removes the only path by which a spend could invoke a contract target.
+        if (data.length != 0) revert UnexpectedCallData();
+
         Policy storage p = policies[agent];
 
         if (!p.active) {
@@ -308,12 +313,7 @@ contract SpendArcVault {
         s.spentToday = uint128(sSpent + amount);
         s.lastResetTime = sReset;
 
-        if (token == NATIVE) {
-            (bool ok,) = target.call{value: amount}(data);
-            if (!ok) revert NativeTransferFailed();
-        } else {
-            IERC20(token).safeTransfer(target, amount);
-        }
+        IERC20(token).safeTransfer(target, amount);
 
         emit AgentActionApproved(agent, target, token, amount, actionId);
         emit ReceiptIssued(agent, target, token, amount, actionId, block.timestamp);

@@ -11,19 +11,21 @@ export interface ProofResult {
 }
 
 /**
- * Static fallback receipts - two real SpendArcVault events (approved 1.5 USDC, blocked 6 USDC
- * vs a 5 USDC cap). These are immutable and stay valid; the live proof prefers the most recent
- * transactions from the app DB so the landing page always reflects the current demo run.
+ * Static fallback receipts - two real SpendArcVault events on Arc mainnet against the reference
+ * vault's $1/tx leash: an approved 0.5 USDC spend and a blocked 2 USDC attempt. These are
+ * immutable and stay valid; the live proof prefers the most recent transactions from the app DB
+ * so the landing page reflects the current demo run, and reads the amount/reason live from the
+ * vault receipt on every load.
  */
 export const PROOF_TX: Record<"approved" | "blocked", Hex> = {
-  approved: "0xa12953915fba548cb16128bb53fa5c51c406f7d051a922db8dc0b2be3678ad5b",
-  blocked: "0x892fa9cf430c86a1fa5266ca2ca1b9617694ce1579fa223e672bf67c652fc81b",
+  approved: "0x05796ab956817e1ba45a0cd16dfe931b29e15475f862a8256f34aa37a6fa374a",
+  blocked: "0xbb922fda93c6f6cc12e8422864576c5104ccb8c8271721ca06a4d7421806f2ce",
 };
 
 /** Known real values (read from the vault receipts above) - the honest fallback if the live read fails. */
 const SNAPSHOT: Record<"approved" | "blocked", ProofResult> = {
-  approved: {kind: "approved", amount: 1_500_000n, txHash: PROOF_TX.approved, source: "snapshot"},
-  blocked: {kind: "blocked", amount: 6_000_000n, reason: "exceeds maxPerTx", txHash: PROOF_TX.blocked, source: "snapshot"},
+  approved: {kind: "approved", amount: 500_000n, txHash: PROOF_TX.approved, source: "snapshot"},
+  blocked: {kind: "blocked", amount: 2_000_000n, reason: "exceeds maxPerTx", txHash: PROOF_TX.blocked, source: "snapshot"},
 };
 
 const approvedEvent = getAbiItem({abi: vaultAbi, name: "AgentActionApproved"});

@@ -163,6 +163,12 @@ contract SpendArcVaultTest is Test {
         vault.setAllowedService(agent, target, "bad", 50e6, 10e6, 0, true);
     }
 
+    function test_Revert_SpendWithCallDataRejected() public {
+        vm.prank(executor);
+        vm.expectRevert(SpendArcVault.UnexpectedCallData.selector);
+        vault.executeSpendFor(agent, address(usdc), target, 1e6, hex"deadbeef", keccak256("calldata"));
+    }
+
     function spend(address to, uint128 amount, bytes32 actionId) internal {
         vm.prank(executor);
         vault.executeSpendFor(agent, address(usdc), to, amount, "", actionId);

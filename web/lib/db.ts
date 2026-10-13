@@ -26,6 +26,11 @@ function getDb(): Database.Database {
     if (isRemote) {
       _db = new Database(TURSO_URL, {authToken: TURSO_AUTH_TOKEN} as LibsqlOptions);
     } else {
+      if (process.env.NODE_ENV === "production") {
+        // A local SQLite file does not persist on serverless hosts, so the server policy fence
+        // would reset on every deploy/cold start. Fail loudly instead of silently losing policy.
+        throw new Error("TURSO_DATABASE_URL is required in production - refusing to use an ephemeral local SQLite file for the policy store.");
+      }
       const fs = require("fs");
       const dir = path.dirname(DB_PATH);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true});
@@ -134,6 +139,7 @@ function initSchema(db: Database.Database) {
   ensureColumn(db, "agents", "api_key_hash", "TEXT");
   ensureColumn(db, "agents", "created_by", "TEXT");
   ensureColumn(db, "agents", "vault_address", "TEXT");
+  ensureColumn(db, "agents", "network", "TEXT");
   ensureColumn(db, "allowlist_entries", "max_per_tx_usdc", "INTEGER");
   ensureColumn(db, "allowlist_entries", "daily_cap_usdc", "INTEGER");
 }
@@ -155,6 +161,7 @@ export interface Agent {
   api_key_hash: string | null;
   created_by: string | null;
   vault_address: string | null;
+  network: string | null;
 }
 
 export interface Vault {
@@ -265,7 +272,7 @@ export function getAgent(id: string): Agent | undefined {
 export function createAgent(name: string, address: string): Agent {
   const id = `agent_${randomUUID().slice(0, 8)}`;
   const now = Math.floor(Date.now() / 1000);
-  const agent: Agent = {id, name, address, status: "active", created_at: now, last_active_at: now, api_key_hash: null, created_by: null, vault_address: null};
+  const agent: Agent = {id, name, address, status: "active", created_at: now, last_active_at: now, api_key_hash: null, created_by: null, vault_address: null, network: null};
   getDb().prepare("INSERT INTO agents (id, name, address, status, created_at, last_active_at) VALUES (?, ?, ?, ?, ?, ?)").run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at);
   getDb().prepare("INSERT INTO policies (agent_id, max_per_tx, daily_cap, spent_today, expiry, active, last_reset_time) VALUES (?, 0, 0, 0, 0, 1, ?)").run(agent.id, now);
   addAuditLog("agent", agent.id, "agent_created", {name, address});
@@ -293,6 +300,7 @@ export function createUserAgent(
   maxPerTx: number,
   dailyCap: number,
   vaultAddress?: string,
+  network?: string,
 ): UserAgentResult {
   const apiKey = `spend_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
   const id = `agent_${randomUUID().slice(0, 8)}`;
@@ -307,12 +315,13 @@ export function createUserAgent(
     api_key_hash: hashApiKey(apiKey),
     created_by: createdBy,
     vault_address: vaultAddress ?? null,
+    network: network ?? null,
   };
   getDb()
     .prepare(
-      "INSERT INTO agents (id, name, address, status, created_at, last_active_at, api_key_hash, created_by, vault_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO agents (id, name, address, status, created_at, last_active_at, api_key_hash, created_by, vault_address, network) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
-    .run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at, agent.api_key_hash, agent.created_by, agent.vault_address);
+    .run(agent.id, agent.name, agent.address, agent.status, agent.created_at, agent.last_active_at, agent.api_key_hash, agent.created_by, agent.vault_address, agent.network);
   getDb()
     .prepare("INSERT INTO policies (agent_id, max_per_tx, daily_cap, spent_today, expiry, active, last_reset_time) VALUES (?, ?, ?, 0, 0, 1, ?)")
     .run(agent.id, maxPerTx, dailyCap, now);

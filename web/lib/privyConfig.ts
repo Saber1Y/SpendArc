@@ -12,7 +12,7 @@ export const privyConfig: PrivyClientConfig = {
       createOnLogin: "users-without-wallets",
     },
   },
-  // Pin the app to Arc Testnet so embedded wallets start (and stay) on the
+  // Pin the app to Arc so embedded wallets start (and stay) on the
   // chain the vaults live on instead of Privy's default (Sepolia).
   supportedChains: [arcChain],
   defaultChain: arcChain,
