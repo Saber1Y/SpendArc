@@ -15,7 +15,15 @@ export const USDC_ADDRESS = ACTIVE_NETWORK.usdc;
 
 export const arcChain = chainFor(ACTIVE_NETWORK);
 
-export const arcPublicClient = createPublicClient({chain: arcChain, transport: http(ARC_RPC_URL)});
+/**
+ * RPC URL for CLIENT-side reads. In the browser we go through the same-origin /api/rpc proxy
+ * (reliable, no browser↔public-RPC flakiness); on the server we use the direct RPC. Writes are
+ * signed through the wallet provider, not this URL.
+ */
+export const CLIENT_RPC_URL =
+  typeof window !== "undefined" ? `${window.location.origin}/api/rpc?network=${ACTIVE_NETWORK.key}` : ARC_RPC_URL;
+
+export const arcPublicClient = createPublicClient({chain: arcChain, transport: http(CLIENT_RPC_URL)});
 
 export const arcExplorerTx = (hash: string) => `${ARC_EXPLORER_URL}/tx/${hash}`;
 export const arcExplorerAddress = (addr: string) => `${ARC_EXPLORER_URL}/address/${addr}`;
