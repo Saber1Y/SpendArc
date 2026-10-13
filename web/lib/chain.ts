@@ -1,7 +1,7 @@
 import {createPublicClient, http} from "viem";
-import {arcChain} from "./arc";
+import {arcChain, ARC_EXPLORER_URL} from "./arc";
 
 export const publicClient = createPublicClient({chain: arcChain, transport: http()});
 
-export const explorerTx = (hash: string) => `https://testnet.arcscan.app/tx/${hash}`;
-export const explorerAddress = (addr: string) => `https://testnet.arcscan.app/address/${addr}`;
+export const explorerTx = (hash: string) => `${ARC_EXPLORER_URL}/tx/${hash}`;
+export const explorerAddress = (addr: string) => `${ARC_EXPLORER_URL}/address/${addr}`;
