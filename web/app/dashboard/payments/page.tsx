@@ -4,6 +4,7 @@ import {useVaultState} from "@/lib/hooks";
 import {useApiTransactions, txToAction} from "@/lib/hooks";
 import {formatUsdc} from "@/lib/format";
 import {CONTRACTS} from "@/lib/contracts";
+import {ACTIVE_NETWORK} from "@/lib/networks";
 
 function StatCard({label, value, sub, accent, delay = 0}: {label: string; value: string | number; sub?: string; accent?: boolean; delay?: number}) {
   return (
@@ -35,7 +36,7 @@ function RecentSettlement({transactions}: {transactions: ReturnType<typeof useAp
         <div key={tx.id} className="flex items-center justify-between py-3">
           <div>
             <div className="text-[13px] font-medium text-text-primary">{formatUsdc(BigInt(tx.amount))} USDC</div>
-            <div className="text-[12px] text-text-muted mt-0.5">Settled on Arc Testnet</div>
+            <div className="text-[12px] text-text-muted mt-0.5">Settled on {ACTIVE_NETWORK.label}</div>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-state-approved-light text-[11px] font-medium text-state-approved">
             Settled
@@ -48,7 +49,7 @@ function RecentSettlement({transactions}: {transactions: ReturnType<typeof useAp
 
 export default function PaymentsPage() {
   const {transactions, loading} = useApiTransactions();
-  const vault = "0xf23147Df55089eA6bA87BF24bb4eEE6f7Cea182b" as const;
+  const vault = CONTRACTS.vault;
 
   const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;
   const blockedCount = transactions.filter((t) => t.execution_status === "BLOCKED").length;
@@ -66,7 +67,7 @@ export default function PaymentsPage() {
           <span className="h-2 w-2 rounded-full bg-state-approved" />
           <div>
             <div className="text-[13px] font-medium text-text-primary">Settlement Network</div>
-            <div className="text-[12px] text-text-muted">Arc Testnet (5042002)</div>
+            <div className="text-[12px] text-text-muted">{ACTIVE_NETWORK.label} ({ACTIVE_NETWORK.chainId})</div>
           </div>
         </div>
       </div>
@@ -75,7 +76,7 @@ export default function PaymentsPage() {
         <StatCard label="Total Settled" value={confirmedCount} sub="payments" accent />
         <StatCard label="Pending" value={transactions.length - confirmedCount - blockedCount - failedCount} sub="payments" delay={60} />
         <StatCard label="Failed" value={failedCount + blockedCount} sub="blocked" delay={120} />
-        <StatCard label="Vault" value="Arc Testnet" sub={`Vault: ${vault.slice(0, 10)}...`} delay={180} />
+        <StatCard label="Vault" value={ACTIVE_NETWORK.label} sub={`Vault: ${vault.slice(0, 10)}...`} delay={180} />
       </div>
 
       <div className="kpi-card" data-aos="fade-up" data-aos-delay="120">

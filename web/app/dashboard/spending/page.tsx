@@ -23,7 +23,7 @@ interface RunState {
 
 function RunAgentSection({agentId, refetch}: {agentId: string; refetch: () => void}) {
   const [run, setRun] = useState<RunState>({phase: "idle"});
-  const [recipient, setRecipient] = useState("0x3F5b96A494061F7338Da529e3047809Ac6a7FB84");
+  const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("1.5");
   const [purpose, setPurpose] = useState("");
 

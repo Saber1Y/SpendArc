@@ -46,9 +46,9 @@ function CopyButton({value}: {value: string}) {
 }
 
 function OwnerSettings() {
-  const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
-  const {data: state, loading} = useVaultState(agent, CONTRACTS.vault);
   const {address, isConnected} = useActiveAddress();
+  const agent = (address ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
+  const {data: state, loading} = useVaultState(agent, CONTRACTS.vault);
   const [health, setHealth] = useState<Health>([]);
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
 

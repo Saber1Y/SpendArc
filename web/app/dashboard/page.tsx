@@ -7,6 +7,7 @@ import {isSameAddress, formatUsdc, truncateAddress, truncateHash} from "@/lib/fo
 import {explorerTx} from "@/lib/chain";
 import {CONTRACTS, vaultAbi, usdcAbi} from "@/lib/contracts";
 import {arcChain} from "@/lib/arc";
+import {ACTIVE_NETWORK} from "@/lib/networks";
 import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
 import {useRole, useMyAgent} from "@/lib/useRole";
 import {waitForReceiptRaw} from "@/lib/txwait";
@@ -330,12 +331,12 @@ function VaultFundCard({state, refetch}: {state: ReturnType<typeof useVaultState
 }
 
 function OwnerOverview() {
-  const agent = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as const;
+  const {address, isConnected} = useActiveAddress();
+  const agent = (address ?? "0x0000000000000000000000000000000000000000") as Address;
   const {data: state, loading, error, refetch} = useVaultState(agent, CONTRACTS.vault);
   const {transactions, loading: txLoading} = useApiTransactions();
   const {agents} = useApiAgents();
   const {recipients, tokens} = useApiAllowlist(agents[0]?.id);
-  const {address, isConnected} = useActiveAddress();
 
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
   const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;
@@ -352,7 +353,7 @@ function OwnerOverview() {
         <div className="flex items-center gap-4 mt-3">
           <span className="inline-flex items-center gap-1.5 text-[12px] text-text-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-state-approved" />
-            Arc Testnet
+            {ACTIVE_NETWORK.label}
           </span>
           {isConnected && address && (
             <span className="text-[12px] text-text-muted">{truncateAddress(address)}</span>

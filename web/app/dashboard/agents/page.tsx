@@ -15,6 +15,7 @@ import {explorerAddress} from "@/lib/chain";
 import {TransactionHistoryCard} from "@/components/dashboard/TransactionTable";
 import {DailyCapMeter} from "@/components/dashboard/DailyCapMeter";
 import {DEFAULT_MAX_PER_TX_USDC, DEFAULT_DAILY_CAP_USDC} from "@/lib/policyLimits";
+import {ACTIVE_NETWORK} from "@/lib/networks";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 const MAX_ALLOWANCE = (2n ** 256n) - 1n;
@@ -53,7 +54,7 @@ function AgentCard({agent, state, loading, delay = 0}: {agent: {id: string; name
         </div>
         <div className="flex items-center justify-between py-2 border-b border-border">
           <span className="text-[12px] text-text-muted">Network</span>
-          <span className="text-[12px] text-text-primary">Arc Testnet</span>
+          <span className="text-[12px] text-text-primary">{ACTIVE_NETWORK.label}</span>
         </div>
         <div className="flex items-center justify-between py-2 border-b border-border">
           <span className="text-[12px] text-text-muted">Vault balance</span>
@@ -129,7 +130,7 @@ function VaultSummary({state, loading}: {state: ReturnType<typeof useVaultState>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-text-muted">Network</span>
-              <span className="text-[12px] text-text-primary">Arc Testnet</span>
+              <span className="text-[12px] text-text-primary">{ACTIVE_NETWORK.label}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-text-muted">Token</span>
@@ -689,9 +690,12 @@ export default function AgentsPage() {
   const {agents, loading: agentsLoading, refetch: refetchAgents} = useApiAgents();
   const {address, isConnected} = useActiveAddress();
   const [selectedAgentId, setSelectedAgentId] = useState("");
-  const firstAgent = agents[0];
-  const myAgent = agents.find((a) => isSameAddress(a.address, address)) ?? null;
-  const stateAgent = (myAgent?.address ?? firstAgent?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as `0x${string}`;
+  // Only show agents bound to the active network (legacy agents with no network tag are hidden
+  // so a mainnet view doesn't list stale testnet agents mislabeled as mainnet).
+  const networkAgents = agents.filter((a) => (a.network ?? "") === ACTIVE_NETWORK.key);
+  const firstAgent = networkAgents[0];
+  const myAgent = networkAgents.find((a) => isSameAddress(a.address, address)) ?? null;
+  const stateAgent = (myAgent?.address ?? firstAgent?.address ?? address ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
   const stateVault = (myAgent?.vault_address ?? null) as `0x${string}` | null;
   const {data: state, loading: vaultLoading} = useVaultState(stateAgent, stateVault ?? CONTRACTS.vault);
   const loading = agentsLoading || vaultLoading;
@@ -707,16 +711,16 @@ export default function AgentsPage() {
         </div>
 
         <div className="space-y-6">
-          <CreateUserAgentCard onCreated={refetchAgents} />
-          {agents.length === 0 && !agentsLoading ? (
+          <CreateUserAgentCard onCreated={refetchAgents} hasAgent={!!myAgent} />
+          {networkAgents.length === 0 && !agentsLoading ? (
             null
           ) : (
-            agents.map((agent, i) => (
+            networkAgents.map((agent, i) => (
               <AgentCardWithState key={agent.id} agent={agent} delay={i * 100} />
             ))
           )}
           {firstAgent && <VaultSummary state={state} loading={loading} />}
-          {agents.length > 0 && (
+          {networkAgents.length > 0 && (
             <>
               <div className="kpi-card p-4 flex items-center gap-4" data-aos="fade-up">
                 <span className="text-[12px] text-text-muted">Transaction history for:</span>
@@ -725,7 +729,7 @@ export default function AgentsPage() {
                   onChange={(e) => setSelectedAgentId(e.target.value)}
                   className="rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent"
                 >
-                  {agents.map((a) => (
+                  {networkAgents.map((a) => (
                     <option key={a.id} value={a.id}>{a.name} ({a.id.slice(0, 12)}...)</option>
                   ))}
                 </select>

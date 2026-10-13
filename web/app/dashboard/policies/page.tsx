@@ -139,7 +139,7 @@ function OwnerPolicies() {
   const {address, isConnected} = useActiveAddress();
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const selected = agents.find((a) => a.id === selectedAgentId) ?? agents[0];
-  const agentAddress = (selected?.address ?? "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84") as Address;
+  const agentAddress = (selected?.address ?? address ?? "0x0000000000000000000000000000000000000000") as Address;
   const agentId = selected?.id ?? "";
   const vault = (selected?.vault_address as Address | null) ?? CONTRACTS.vault;
   const {data: state, loading, error, refetch} = useVaultState(agentAddress, vault);

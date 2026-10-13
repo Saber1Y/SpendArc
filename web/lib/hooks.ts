@@ -35,6 +35,7 @@ export interface ApiAgent {
   created_at: number;
   last_active_at: number;
   vault_address: string | null;
+  network: string | null;
 }
 
 export interface ApiPolicy {
