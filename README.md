@@ -9,7 +9,7 @@ in minutes: pick a leash, fund it with USDC, and hand any AI agent a scoped API 
 nothing - a funded vault enforces caps, allowlists, daily limits and dedup on-chain, while a
 server-side policy gate blocks off-policy calls before they ever touch the chain.
 
-[Architecture](./architecture.md) · [Security](./security.md) · [Adversarial Testing](./adversarialtesting.md) · [Demo flow](./DEMO.md)
+[Architecture](./architecture.md) · [Security](./security.md) · [Adversarial Testing](./adversarialtesting.md) · [Judge's Guide](./JUDGES.md)
 
 `Arc testnet 5042002` · `Solidity` · `Foundry` · `Next.js` · `viem` · `MIT`
 
@@ -60,8 +60,8 @@ RPC `https://rpc.testnet.arc.network` · Explorer `https://testnet.arcscan.app`
 
 | Contract | Address |
 |----------|---------|
-| **SpendArcVaultFactory** | [`0x47ad98eec8c771d514e5576f7738d43ea91ef7c2`](https://testnet.arcscan.app/address/0x47ad98eec8c771d514e5576f7738d43ea91ef7c2) |
-| **SpendArcVault (reference)** | [`0x0b860c25Dc6b2Df451AA66cFCdc7D6c6D7802F66`](https://testnet.arcscan.app/address/0x0b860c25Dc6b2Df451AA66cFCdc7D6c6D7802F66) |
+| **SpendArcVaultFactory** | [`0x084c2061384bffd6254d1423e35b53ea91aaed87`](https://testnet.arcscan.app/address/0x084c2061384bffd6254d1423e35b53ea91aaed87) |
+| **SpendArcVault (reference)** | [`0x82b7a7a401a5a94a6b5f55ec6aff3c8017633b56`](https://testnet.arcscan.app/address/0x82b7a7a401a5a94a6b5f55ec6aff3c8017633b56) |
 | **Operator / faucet** | [`0x3F5b96A494061F7338Da529e3047809Ac6a7FB84`](https://testnet.arcscan.app/address/0x3F5b96A494061F7338Da529e3047809Ac6a7FB84) |
 | **USDC (testnet)** | [`0x3600000000000000000000000000000000000000`](https://testnet.arcscan.app/address/0x3600000000000000000000000000000000000000) |
 
@@ -78,9 +78,16 @@ same-agent-one-variable proof (an approved spend and a blocked spend against the
   [`0x892fa9cf…`](https://testnet.arcscan.app/tx/0x892fa9cf430c86a1fa5266ca2ca1b9617694ce1579fa223e672bf67c652fc81b)
 
 The current run's artifacts (vault address, create-vault tx, deposit tx, visitor-signed
-`setAllowedTarget`/`setAgentPolicy` txs, approved + blocked spend txs) are collected in the
-recording flow - see **[DEMO.md](./DEMO.md)**. The marketing site reads the latest approved + blocked
-actions live on every page load.
+`setAllowedService`/`setAgentPolicy` txs, approved + blocked spend txs) are collected in the
+recording flow. The marketing site reads the latest approved + blocked actions live on every
+page load.
+
+## Try it as a judge (no setup required)
+
+Open the live app and walk through the full flow in your own wallet - connect, create a
+vault with a leash, grab faucet funds, deposit USDC, register an agent, and hand the leash
+to a real AI agent. Every step is real and on-chain. See **[JUDGES.md](./JUDGES.md)** for
+the step-by-step walkthrough.
 
 ## Repository layout
 
@@ -91,7 +98,7 @@ script/                   deploy scripts (DeployFactoryArc, DeployArc, ...)
 client/                   TypeScript agent client (viem)
 web/                      Next.js frontend (marketing + dashboard + API routes)
 lib/                      vendored deps (OpenZeppelin, forge-std)
-DEMO.md                   the demo recording / booth flow
+JUDGES.md                 how to use the product on the live UI (for judges)
 QA.md                     the full end-to-end test flow
 ```
 
@@ -120,7 +127,7 @@ The demo is recorded against a fresh wallet each time, because the factory allow
 - **[security.md](./security.md)** - guarantees, threat model, and key management.
 - **[adversarialtesting.md](./adversarialtesting.md)** - the test strategy: unit, differential fuzz,
   fork-against-real-chain, and on-chain acceptance.
-- **[DEMO.md](./DEMO.md)** - the recording flow for the demo video and booth.
+- **[JUDGES.md](./JUDGES.md)** - how to use the product on the live UI, step by step.
 - **[QA.md](./QA.md)** - the full end-to-end test flow.
 
 ## License
