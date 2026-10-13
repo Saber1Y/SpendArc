@@ -61,8 +61,8 @@ RPC `https://rpc.mainnet.arc.io` · Explorer `https://explorer.arc.io`
 
 | Contract | Address |
 |----------|---------|
-| **SpendArcVaultFactory** | `<fill in after mainnet deploy>` |
-| **SpendArcVault (reference)** | `<fill in after mainnet deploy>` |
+| **SpendArcVaultFactory** | [`0xd79850b02aFDeE63F9fcB0eB385eB6B1526dB7fb`](https://explorer.arc.io/address/0xd79850b02aFDeE63F9fcB0eB385eB6B1526dB7fb) |
+| **SpendArcVault (reference)** | [`0x8D80cEEe03C86de7d90478c5D7599004f375Ef6F`](https://explorer.arc.io/address/0x8D80cEEe03C86de7d90478c5D7599004f375Ef6F) |
 | **USDC (native ERC-20 interface)** | [`0x3600000000000000000000000000000000000000`](https://explorer.arc.io/address/0x3600000000000000000000000000000000000000) |
 
 Every visitor gets their own vault from the factory. See **[MAINNET.md](./MAINNET.md)** for the deploy
