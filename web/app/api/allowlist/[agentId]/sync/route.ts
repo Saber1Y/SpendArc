@@ -2,6 +2,7 @@ import {NextRequest, NextResponse} from "next/server";
 import {isAddress, type Address} from "viem";
 import {getAgent, listAllowlistEntries, addAllowlistEntry, removeAllowlistEntry, setAllowlistEntryPolicy} from "@/lib/db";
 import {getVaultService} from "@/lib/executor";
+import {getNetwork} from "@/lib/networks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
 
   let service: {allowed: boolean; label: string; maxPerTx: bigint; dailyCap: bigint; expiry: bigint};
   try {
-    service = await getVaultService(agent.vault_address as Address, agent.address as Address, address as Address);
+    service = await getVaultService(getNetwork(agent.network as "mainnet" | "testnet" | null), agent.vault_address as Address, agent.address as Address, address as Address);
   } catch {
     return NextResponse.json({error: "VAULT_READ_FAILED", message: "Could not read the vault allowlist on-chain."}, {status: 502});
   }

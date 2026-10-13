@@ -1,6 +1,6 @@
-import {createWalletClient, createPublicClient, http, encodeFunctionData, parseAbi, parseEventLogs, type Address, type Hex} from "viem";
-import {privateKeyToAccount} from "viem/accounts";
-import {ARC_RPC_URL, USDC_ADDRESS} from "./arc";
+import {encodeFunctionData, parseAbi, parseEventLogs, type Address, type Hex} from "viem";
+import type {NetworkConfig} from "./networks";
+import {publicClientFor, executorWalletFor} from "./serverChain";
 
 const VAULT_ABI = parseAbi([
   "function executeSpendFor(address agent, address token, address target, uint256 amount, bytes data, bytes32 actionId) returns (bool)",
@@ -19,19 +19,13 @@ export interface ExecuteResult {
   error?: string;
 }
 
-function getSigner(keyEnv: "EXECUTOR_PRIVATE_KEY") {
-  const key = process.env[keyEnv] as Hex | undefined;
-  if (!key) throw new Error(`${keyEnv} not configured`);
-  return privateKeyToAccount(key);
-}
-
 /**
- * Verify an address is a SpendArc vault owned by `expectedOwner` with the canonical USDC
- * token. Used before binding a self-created per-user vault to a registered agent.
+ * Verify an address is a SpendArc vault owned by `expectedOwner` with the network's canonical USDC.
+ * Used before binding a self-created per-user vault to a registered agent.
  */
-export async function verifyUserVault(vaultAddress: Address, expectedOwner: Address): Promise<{ok: boolean; reason?: string}> {
+export async function verifyUserVault(net: NetworkConfig, vaultAddress: Address, expectedOwner: Address): Promise<{ok: boolean; reason?: string}> {
   try {
-    const client = createPublicClient({transport: http(ARC_RPC_URL)});
+    const client = publicClientFor(net);
     const code = await client.getCode({address: vaultAddress});
     if (!code || code === "0x") return {ok: false, reason: "no contract at address"};
     const [owner, usdc] = await Promise.all([
@@ -39,7 +33,7 @@ export async function verifyUserVault(vaultAddress: Address, expectedOwner: Addr
       client.readContract({address: vaultAddress, abi: VAULT_ABI, functionName: "usdc", args: []}),
     ]);
     if ((owner as Address).toLowerCase() !== expectedOwner.toLowerCase()) return {ok: false, reason: "vault owner mismatch"};
-    if ((usdc as Address).toLowerCase() !== USDC_ADDRESS.toLowerCase()) return {ok: false, reason: "vault does not use canonical USDC"};
+    if ((usdc as Address).toLowerCase() !== net.usdc.toLowerCase()) return {ok: false, reason: "vault does not use canonical USDC"};
     return {ok: true};
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -47,8 +41,8 @@ export async function verifyUserVault(vaultAddress: Address, expectedOwner: Addr
   }
 }
 
-export async function getVaultPolicy(vaultAddress: Address, agentAddress: Address) {
-  const client = createPublicClient({transport: http(ARC_RPC_URL)});
+export async function getVaultPolicy(net: NetworkConfig, vaultAddress: Address, agentAddress: Address) {
+  const client = publicClientFor(net);
   const [policy, remaining] = await Promise.all([
     client.readContract({address: vaultAddress, abi: VAULT_ABI, functionName: "getPolicy", args: [agentAddress]}),
     client.readContract({address: vaultAddress, abi: VAULT_ABI, functionName: "remainingDailyCap", args: [agentAddress]}),
@@ -67,8 +61,8 @@ export interface VaultService {
 }
 
 /** Read the on-chain `serviceAllowlist` policy for `agent` paying `target`. Used to verify a visitor-signed allowlist change before mirroring to the DB. */
-export async function getVaultService(vaultAddress: Address, agentAddress: Address, target: Address): Promise<VaultService> {
-  const client = createPublicClient({transport: http(ARC_RPC_URL)});
+export async function getVaultService(net: NetworkConfig, vaultAddress: Address, agentAddress: Address, target: Address): Promise<VaultService> {
+  const client = publicClientFor(net);
   return client.readContract({
     address: vaultAddress,
     abi: VAULT_ABI,
@@ -78,11 +72,12 @@ export async function getVaultService(vaultAddress: Address, agentAddress: Addre
 }
 
 /**
- * Execute a spend on behalf of `agent`. The vault enforces the AGENT's policy, not the
- * executor's. The executor (server key) must be an authorized executor (or the owner) in the
- * vault, and can only ever move value within the agent's on-chain leash.
+ * Execute a spend on behalf of `agent` on `net`. The vault enforces the AGENT's policy, not the
+ * executor's. The executor (network's server key) must be an authorized executor (or the owner) in
+ * the vault, and can only ever move value within the agent's on-chain leash.
  */
 export async function executeVaultSpend(
+  net: NetworkConfig,
   vaultAddress: Address,
   agent: Address,
   token: Address,
@@ -97,9 +92,8 @@ export async function executeVaultSpend(
   });
 
   try {
-    const executor = getSigner("EXECUTOR_PRIVATE_KEY");
-    const walletClient = createWalletClient({account: executor, transport: http(ARC_RPC_URL)});
-    const publicClient = createPublicClient({transport: http(ARC_RPC_URL)});
+    const walletClient = executorWalletFor(net);
+    const publicClient = publicClientFor(net);
 
     const txHash = await walletClient.sendTransaction({to: vaultAddress, data: calldata, chain: undefined});
     const receipt = await publicClient.waitForTransactionReceipt({hash: txHash, timeout: 60_000});

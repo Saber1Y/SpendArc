@@ -1,9 +1,9 @@
 import {NextRequest, NextResponse} from "next/server";
 import {isAddress, type Address} from "viem";
-import {CONTRACTS} from "@/lib/contracts";
 import {createUserAgent, getAgentByAddress, addAllowlistEntry, getVaultByAddress, createVaultRow} from "@/lib/db";
 import {verifyUserVault, getVaultPolicy} from "@/lib/executor";
 import {verifyRegistrationSignature} from "@/lib/serverAuth";
+import {getNetwork} from "@/lib/networks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function handle(req: NextRequest) {
-  let body: {name?: string; address?: string; vaultAddress?: string; signature?: string; issuedAt?: number};
+  let body: {name?: string; address?: string; vaultAddress?: string; signature?: string; issuedAt?: number; network?: string};
   try {
     body = await req.json();
   } catch {
@@ -38,6 +38,8 @@ async function handle(req: NextRequest) {
   const name = (body.name ?? "").trim();
   const address = (body.address ?? "").trim() as Address;
   const vaultAddress = (body.vaultAddress ?? "").trim();
+  // The agent is bound to the network it is created on; the server acts on that network thereafter.
+  const net = getNetwork(body.network as "mainnet" | "testnet" | undefined);
   if (!name || !isAddress(address)) {
     return NextResponse.json({error: "Valid name and address required"}, {status: 400});
   }
@@ -51,6 +53,7 @@ async function handle(req: NextRequest) {
     vaultAddress,
     issuedAt: Number(body.issuedAt),
     signature: body.signature ?? "",
+    rpcUrl: net.rpcUrl,
   });
   if (!sig.ok) {
     return NextResponse.json({error: "SIGNATURE_INVALID", message: `Wallet ownership proof failed: ${sig.reason}`}, {status: 401});
@@ -63,7 +66,7 @@ async function handle(req: NextRequest) {
 
   {
     // Per-user vault path: the user created their own vault and (typically) deposited.
-    const verify = await verifyUserVault(vaultAddress as Address, address);
+    const verify = await verifyUserVault(net, vaultAddress as Address, address);
     if (!verify.ok) {
       return NextResponse.json(
         {error: "INVALID_VAULT", message: `Vault verification failed: ${verify.reason ?? "unknown"}`},
@@ -73,7 +76,7 @@ async function handle(req: NextRequest) {
 
     let policy;
     try {
-      policy = await getVaultPolicy(vaultAddress as Address, address);
+      policy = await getVaultPolicy(net, vaultAddress as Address, address);
     } catch {
       return NextResponse.json({error: "VAULT_READ_FAILED", message: "Could not read the vault policy on-chain."}, {status: 502});
     }
@@ -85,7 +88,7 @@ async function handle(req: NextRequest) {
       vaultAddress,
       ownerAddress: address,
       agentAddress: address,
-      usdcAddress: CONTRACTS.usdc,
+      usdcAddress: net.usdc,
     });
 
     const {agent, apiKey} = createUserAgent(
@@ -95,17 +98,19 @@ async function handle(req: NextRequest) {
       Number(policy.policy.maxPerTx),
       Number(policy.policy.dailyCap),
       vaultAddress,
+      net.key,
     );
     addAllowlistEntry(agent.id, "recipient", address, "self (owner)");
-    addAllowlistEntry(agent.id, "token", CONTRACTS.usdc, "USDC");
+    addAllowlistEntry(agent.id, "token", net.usdc, "USDC");
 
     return NextResponse.json(
       {
-        agent: {id: agent.id, name: agent.name, address: agent.address, status: agent.status, vaultAddress},
+        agent: {id: agent.id, name: agent.name, address: agent.address, status: agent.status, vaultAddress, network: net.key},
         apiKey,
         policy: {maxPerTx: Number(policy.policy.maxPerTx), dailyCap: Number(policy.policy.dailyCap)},
         vaultAddress,
         vaultId: vaultRow.id,
+        network: net.key,
         txHashes: [],
         warning: "apiKey is shown once. Save it - it is stored only as a hash.",
       },

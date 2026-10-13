@@ -1,7 +1,7 @@
 import {keccak256, toBytes, type Address} from "viem";
-import {CONTRACTS} from "@/lib/contracts";
 import {evaluatePolicy, createTransaction, updateTransaction, incrementDailySpent, getAgent, type DecisionCode} from "@/lib/db";
 import {executeVaultSpend} from "@/lib/executor";
+import {getNetwork} from "@/lib/networks";
 
 export interface PaymentInput {
   agentId: string;
@@ -21,7 +21,6 @@ export type PaymentOutcome =
  * then the on-chain vault spend. Shared by /api/payments/request and the live demo.
  */
 export async function processPayment(input: PaymentInput): Promise<PaymentOutcome> {
-  const USDC = CONTRACTS.usdc;
   const amount = Math.round(Number(input.amountUsdc) * 1_000_000);
   const recipientAddr = input.recipient;
   const actionId = keccak256(toBytes(`${input.agentId}:${recipientAddr}:${amount}:${Date.now()}:${Math.random()}`));
@@ -38,6 +37,9 @@ export async function processPayment(input: PaymentInput): Promise<PaymentOutcom
     };
   }
   const agentAddress = agent.address as Address;
+  // Act on the network the agent was created on - its vault, USDC, and executor key live there.
+  const net = getNetwork(agent.network as "mainnet" | "testnet" | null);
+  const USDC = net.usdc;
 
   const policyResult = evaluatePolicy(input.agentId, amount, recipientAddr, USDC);
 
@@ -67,8 +69,8 @@ export async function processPayment(input: PaymentInput): Promise<PaymentOutcom
   }
 
   try {
-    const vault = (agent.vault_address as Address | null) ?? CONTRACTS.vault;
-    const result = await executeVaultSpend(vault, agentAddress, USDC, recipientAddr, BigInt(amount), actionId);
+    const vault = (agent.vault_address as Address | null) ?? net.vault;
+    const result = await executeVaultSpend(net, vault, agentAddress, USDC, recipientAddr, BigInt(amount), actionId);
 
     if (!result.success) {
       updateTransaction(tx.id, {
@@ -101,7 +103,7 @@ export async function processPayment(input: PaymentInput): Promise<PaymentOutcom
       amount: input.amountUsdc,
       token: "USDC",
       recipient: recipientAddr,
-      network: "Arc",
+      network: net.label,
       executionStatus: "CONFIRMED",
       txHash: result.txHash || null,
     };

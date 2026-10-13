@@ -18,6 +18,7 @@ export async function GET() {
     created_at: a.created_at,
     last_active_at: a.last_active_at,
     vault_address: a.vault_address,
+    network: a.network,
   }));
   return NextResponse.json({agents});
 }

@@ -8,6 +8,7 @@ import {CONTRACTS, factoryAbi, usdcAbi, vaultAbi} from "@/lib/contracts";
 import {publicClient} from "@/lib/chain";
 import {useActiveAddress, usePrivyWalletClient} from "@/lib/usePrivyWallet";
 import {buildRegistrationMessage} from "@/lib/authMessage";
+import {getActiveNetworkKey} from "@/lib/networks";
 import {waitForReceiptRaw} from "@/lib/txwait";
 import {formatUsdc, truncateAddress, isSameAddress} from "@/lib/format";
 import {explorerAddress} from "@/lib/chain";
@@ -387,7 +388,7 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
       const res = await fetch("/api/agents/user", {
         method: "POST",
         headers: {"content-type": "application/json"},
-        body: JSON.stringify({name: name.trim(), address, vaultAddress, signature, issuedAt}),
+        body: JSON.stringify({name: name.trim(), address, vaultAddress, signature, issuedAt, network: getActiveNetworkKey()}),
       });
       const {ok, data} = await parseResponse(res);
       if (!ok) {
