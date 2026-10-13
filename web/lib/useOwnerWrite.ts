@@ -23,7 +23,7 @@ export function useOwnerWrite(refetch: () => void) {
   const {getClient} = usePrivyWalletClient();
   const [status, setStatus] = useState<WriteStatus>({pending: false});
 
-  const run = async (args: WriteArgs) => {
+  const run = async (args: WriteArgs): Promise<boolean> => {
     setStatus({pending: true});
     try {
       const client = await getClient();
@@ -36,13 +36,15 @@ export function useOwnerWrite(refetch: () => void) {
       const result = await waitForReceiptRaw(hash);
       if (result === "reverted") {
         setStatus({pending: false, error: "Transaction reverted on-chain"});
-        return;
+        return false;
       }
       refetch(); // read-back the resulting state
       setStatus({pending: false, okKey: Date.now()});
+      return true;
     } catch (e) {
       const err = e as {shortMessage?: string; message?: string};
       setStatus({pending: false, error: err.shortMessage ?? err.message ?? "Transaction failed"});
+      return false;
     }
   };
 
