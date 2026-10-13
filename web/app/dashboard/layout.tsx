@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { RoleProvider, useRole } from "@/lib/useRole";
 import { OwnerConnectButton } from "@/components/dashboard/OwnerConnectButton";
+import { LogoMark } from "@/components/ui/Logo";
 import { LoginGate } from "@/components/dashboard/LoginGate";
 import { PageLoader } from "@/components/ui/PageLoader";
 
@@ -213,11 +214,12 @@ function DashboardShell({
       <aside className="fixed inset-y-0 left-0 z-40 flex w-[var(--sidebar-width)] flex-col bg-surface-sidebar">
         {/* Logo */}
         <div className="flex h-16 items-center gap-2.5 px-5">
-          <div>
-            <span className="text-md font-semibold text-white tracking-tight">
-              SpendArc
+          <LogoMark size={28} className="shrink-0" />
+          <div className="min-w-0">
+            <span className="block text-md font-semibold tracking-tight text-white">
+              Spend<span className="text-accent">Arc</span>
             </span>
-            <span className="block text-[10px] text-white/40 leading-none mt-0.5">
+            <span className="block truncate text-[10px] leading-none text-white/40 mt-0.5">
               {subtitle}
             </span>
           </div>
