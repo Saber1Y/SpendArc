@@ -6,8 +6,7 @@ import {useVaultState, useApiAgents} from "./hooks";
 import {isSameAddress, type Address} from "./format";
 import {CONTRACTS} from "./contracts";
 
-/** Demo agent (also the vault owner) - used as the read anchor for owner() + policy reads. */
-const ROLE_ANCHOR = "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84" as Address;
+const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 
 export interface RoleValue {
   isOwner: boolean;
@@ -29,7 +28,9 @@ const RoleContext = createContext<RoleValue>({isOwner: false, isConnected: false
 
 export function RoleProvider({children}: {children: React.ReactNode}) {
   const {address, isConnected} = useActiveAddress();
-  const {data: state, loading} = useVaultState(ROLE_ANCHOR, CONTRACTS.vault);
+  // Anchor the read to the connected wallet; owner() is vault-global, so this resolves the role
+  // for whoever is connected without depending on a hard-coded agent address.
+  const {data: state, loading} = useVaultState(address ?? ZERO, CONTRACTS.vault);
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
   return (
     <RoleContext.Provider value={{isOwner, isConnected, address, loading}}>{children}</RoleContext.Provider>
