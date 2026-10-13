@@ -186,37 +186,46 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
     }
     let cancelled = false;
     (async () => {
-      try {
-        const vault = (await publicClient.readContract({
-          address: CONTRACTS.factory,
-          abi: factoryAbi,
-          functionName: "vaultOf",
-          args: [address],
-        })) as Address;
-        if (!cancelled) {
-          const found = vault !== ZERO_ADDRESS;
-          setVaultAddress(found ? vault : null);
-          if (found) {
-            try {
-              const [wb, vb] = await Promise.all([
-                publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [address]}),
-                publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]}),
-              ]);
-              if (!cancelled) {
-                setWalletUsdc(wb);
-                setVaultBalance(vb);
-              }
-            } catch {
-              // balances are advisory - leave last known values
+      // Retry the vault lookup a few times before concluding there is none - a single RPC hiccup
+      // must not drop a user into the "create a vault" path when they already have one.
+      let vault: Address | null = null;
+      let readOk = false;
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        try {
+          vault = (await publicClient.readContract({
+            address: CONTRACTS.factory,
+            abi: factoryAbi,
+            functionName: "vaultOf",
+            args: [address],
+          })) as Address;
+          readOk = true;
+          break;
+        } catch {
+          await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+        }
+      }
+      if (cancelled) return;
+
+      if (readOk) {
+        const found = !!vault && vault !== ZERO_ADDRESS;
+        setVaultAddress(found ? vault : null);
+        if (found && vault) {
+          try {
+            const [wb, vb] = await Promise.all([
+              publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [address]}),
+              publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]}),
+            ]);
+            if (!cancelled) {
+              setWalletUsdc(wb);
+              setVaultBalance(vb);
             }
+          } catch {
+            // balances are advisory - leave last known values
           }
         }
-      } catch {
-        // keep the last-known vault on RPC hiccups - dropping it would hide the
-        // register section mid-flow for no reason
-      } finally {
-        if (!cancelled) setVaultChecked(true);
       }
+      // If the read never succeeded, keep the last-known vault rather than forcing the create path.
+      if (!cancelled) setVaultChecked(true);
     })();
     return () => {
       cancelled = true;
@@ -268,6 +277,24 @@ function CreateUserAgentCard({onCreated, hasAgent}: {onCreated: () => void; hasA
     setError("");
     try {
       if (!(await guardClient())) return;
+      // Guard: if this wallet already has a vault (one per owner), adopt it instead of sending a
+      // tx that would revert with "already has vault". This recovers cleanly when detection missed
+      // the vault (e.g. an RPC hiccup) and the user clicked Create anyway.
+      try {
+        const existing = (await publicClient.readContract({
+          address: CONTRACTS.factory,
+          abi: factoryAbi,
+          functionName: "vaultOf",
+          args: [address as Address],
+        })) as Address;
+        if (existing && existing !== ZERO_ADDRESS) {
+          setVaultAddress(existing);
+          await refreshBalances();
+          return;
+        }
+      } catch {
+        // could not read - fall through and let the create attempt proceed
+      }
       const mpt = Math.min(Math.max(maxPerTxUsdc, 1), 10);
       const dc = Math.min(Math.max(dailyCapUsdc, 1), 25);
       if (mpt > dc) {
