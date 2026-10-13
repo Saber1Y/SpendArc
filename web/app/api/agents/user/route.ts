@@ -2,22 +2,20 @@ import {NextRequest, NextResponse} from "next/server";
 import {isAddress, type Address} from "viem";
 import {CONTRACTS} from "@/lib/contracts";
 import {createUserAgent, getAgentByAddress, addAllowlistEntry, getVaultByAddress, createVaultRow} from "@/lib/db";
-import {registerAgentOnChain, verifyUserVault, getVaultPolicy} from "@/lib/executor";
-import {DEFAULT_MAX_PER_TX_USDC, DEFAULT_DAILY_CAP_USDC} from "@/lib/policyLimits";
+import {verifyUserVault, getVaultPolicy} from "@/lib/executor";
+import {verifyRegistrationSignature} from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_MAX_PER_TX = DEFAULT_MAX_PER_TX_USDC * 1_000_000; // 5 USDC
-const DEFAULT_DAILY_CAP = DEFAULT_DAILY_CAP_USDC * 1_000_000; // 10 USDC
-
 /**
- * Register a user's own agent. Two paths:
- *  - vaultAddress provided: the user self-created a per-user vault (factory). We verify it
- *    on-chain (owner == user, canonical USDC), read the vault's leash for the DB mirror, and
- *    bind the agent to it. No owner-signed txs needed - the vault is already fully configured.
- *  - no vaultAddress (legacy): owner-signed registration on the shared operator vault.
- * Returns the agent's API key exactly once (stored hashed server-side).
+ * Register a user's own agent against a per-user vault they created via the factory.
+ *
+ * The caller must prove control of `address` with a wallet signature over the canonical
+ * registration challenge (see authMessage.ts); the server then verifies the vault on-chain
+ * (owner == address, canonical USDC), reads its leash for the DB mirror, and binds the agent.
+ * Returns the agent's API key exactly once (stored only as a hash). There is no shared-vault
+ * path: every agent is backed by a vault its own wallet owns.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +28,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function handle(req: NextRequest) {
-  let body: {name?: string; address?: string; vaultAddress?: string};
+  let body: {name?: string; address?: string; vaultAddress?: string; signature?: string; issuedAt?: number};
   try {
     body = await req.json();
   } catch {
@@ -39,8 +37,23 @@ async function handle(req: NextRequest) {
 
   const name = (body.name ?? "").trim();
   const address = (body.address ?? "").trim() as Address;
+  const vaultAddress = (body.vaultAddress ?? "").trim();
   if (!name || !isAddress(address)) {
     return NextResponse.json({error: "Valid name and address required"}, {status: 400});
+  }
+  if (!isAddress(vaultAddress)) {
+    return NextResponse.json({error: "VAULT_REQUIRED", message: "Create your vault first - a vaultAddress is required."}, {status: 400});
+  }
+
+  // Proof of wallet ownership: the caller must sign the registration challenge with `address`.
+  const sig = await verifyRegistrationSignature({
+    address,
+    vaultAddress,
+    issuedAt: Number(body.issuedAt),
+    signature: body.signature ?? "",
+  });
+  if (!sig.ok) {
+    return NextResponse.json({error: "SIGNATURE_INVALID", message: `Wallet ownership proof failed: ${sig.reason}`}, {status: 401});
   }
 
   const existing = getAgentByAddress(address);
@@ -48,9 +61,7 @@ async function handle(req: NextRequest) {
     return NextResponse.json({error: "ADDRESS_REGISTERED", message: "This address already has an agent."}, {status: 409});
   }
 
-  const vaultAddress = (body.vaultAddress ?? "").trim();
-
-  if (vaultAddress && isAddress(vaultAddress)) {
+  {
     // Per-user vault path: the user created their own vault and (typically) deposited.
     const verify = await verifyUserVault(vaultAddress as Address, address);
     if (!verify.ok) {
@@ -101,25 +112,4 @@ async function handle(req: NextRequest) {
       {status: 201},
     );
   }
-
-  // Legacy shared-vault path (owner-signed, kept for the operator plane).
-  const reg = await registerAgentOnChain(CONTRACTS.vault, address, BigInt(DEFAULT_MAX_PER_TX), BigInt(DEFAULT_DAILY_CAP), CONTRACTS.usdc, address);
-  if (!reg.success || !reg.txHashes) {
-    return NextResponse.json({error: "ONCHAIN_REGISTRATION_FAILED", message: reg.error ?? "Failed to register agent on-chain"}, {status: 502});
-  }
-
-  const {agent, apiKey} = createUserAgent(name, address, address, DEFAULT_MAX_PER_TX, DEFAULT_DAILY_CAP);
-  addAllowlistEntry(agent.id, "recipient", address, "self (owner)");
-  addAllowlistEntry(agent.id, "token", CONTRACTS.usdc, "USDC");
-
-  return NextResponse.json(
-    {
-      agent: {id: agent.id, name: agent.name, address: agent.address, status: agent.status},
-      apiKey,
-      policy: {maxPerTx: DEFAULT_MAX_PER_TX, dailyCap: DEFAULT_DAILY_CAP},
-      txHashes: reg.txHashes,
-      warning: "apiKey is shown once. Save it - it is stored only as a hash.",
-    },
-    {status: 201},
-  );
 }

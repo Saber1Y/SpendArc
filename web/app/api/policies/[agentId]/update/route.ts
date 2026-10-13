@@ -1,8 +1,7 @@
 import {NextRequest, NextResponse} from "next/server";
 import {encodeFunctionData, type Address} from "viem";
-import {CONTRACTS, vaultAbi} from "@/lib/contracts";
-import {getAgent, updatePolicy} from "@/lib/db";
-import {setAgentPolicyOnChain} from "@/lib/executor";
+import {vaultAbi} from "@/lib/contracts";
+import {getAgent} from "@/lib/db";
 import {MAX_PER_TX_USDC, MAX_DAILY_CAP_USDC} from "@/lib/policyLimits";
 
 export const runtime = "nodejs";
@@ -54,29 +53,23 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{agentId
   if (!check.ok) return check.response;
   const {maxPerTx, dailyCap} = check.values;
 
-  if (agent.vault_address) {
-    const vault = agent.vault_address as Address;
-    const data = encodeFunctionData({abi: vaultAbi, functionName: "setAgentPolicy", args: [agent.address as Address, maxPerTx, dailyCap, 0n, true]});
-    return NextResponse.json({
-      tx: {
-        to: vault,
-        data,
-        value: "0",
-        description: `Set your agent leash to ${Number(maxPerTx) / 1_000_000} USDC/tx, ${Number(dailyCap) / 1_000_000} USDC/day on your vault ${vault}`,
-      },
-      maxPerTxUsdc: Number(maxPerTx) / 1_000_000,
-      dailyCapUsdc: Number(dailyCap) / 1_000_000,
-    });
+  if (!agent.vault_address) {
+    return NextResponse.json({error: "Agent is not backed by a per-user vault"}, {status: 400});
   }
 
-  const onchain = await setAgentPolicyOnChain(CONTRACTS.vault, agent.address as Address, maxPerTx, dailyCap);
-  if (!onchain.success) {
-    return NextResponse.json(
-      {error: "ONCHAIN_POLICY_UPDATE_FAILED", message: onchain.error ?? "On-chain policy update failed"},
-      {status: 502},
-    );
-  }
-
-  const policy = updatePolicy(agentId, {max_per_tx: Number(maxPerTx), daily_cap: Number(dailyCap), active: 1});
-  return NextResponse.json({policy, txHash: onchain.txHash});
+  // The visitor owns their vault, so the server never signs policy changes. It returns the
+  // unsigned calldata for the owner to sign in their wallet; the DB mirror follows via /sync
+  // after the on-chain change is verified.
+  const vault = agent.vault_address as Address;
+  const data = encodeFunctionData({abi: vaultAbi, functionName: "setAgentPolicy", args: [agent.address as Address, maxPerTx, dailyCap, 0n, true]});
+  return NextResponse.json({
+    tx: {
+      to: vault,
+      data,
+      value: "0",
+      description: `Set your agent leash to ${Number(maxPerTx) / 1_000_000} USDC/tx, ${Number(dailyCap) / 1_000_000} USDC/day on your vault ${vault}`,
+    },
+    maxPerTxUsdc: Number(maxPerTx) / 1_000_000,
+    dailyCapUsdc: Number(dailyCap) / 1_000_000,
+  });
 }

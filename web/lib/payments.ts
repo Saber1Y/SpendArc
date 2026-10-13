@@ -101,7 +101,7 @@ export async function processPayment(input: PaymentInput): Promise<PaymentOutcom
       amount: input.amountUsdc,
       token: "USDC",
       recipient: recipientAddr,
-      network: "Arc Testnet",
+      network: "Arc",
       executionStatus: "CONFIRMED",
       txHash: result.txHash || null,
     };

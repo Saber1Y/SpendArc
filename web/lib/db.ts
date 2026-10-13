@@ -26,6 +26,11 @@ function getDb(): Database.Database {
     if (isRemote) {
       _db = new Database(TURSO_URL, {authToken: TURSO_AUTH_TOKEN} as LibsqlOptions);
     } else {
+      if (process.env.NODE_ENV === "production") {
+        // A local SQLite file does not persist on serverless hosts, so the server policy fence
+        // would reset on every deploy/cold start. Fail loudly instead of silently losing policy.
+        throw new Error("TURSO_DATABASE_URL is required in production - refusing to use an ephemeral local SQLite file for the policy store.");
+      }
       const fs = require("fs");
       const dir = path.dirname(DB_PATH);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true});
