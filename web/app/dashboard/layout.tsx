@@ -4,9 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useActiveAddress } from "@/lib/usePrivyWallet";
 import { RoleProvider, useRole } from "@/lib/useRole";
-import { truncateAddress } from "@/lib/format";
 import { OwnerConnectButton } from "@/components/dashboard/OwnerConnectButton";
 import { LoginGate } from "@/components/dashboard/LoginGate";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -190,7 +188,6 @@ function DashboardShell({
   const pathname = usePathname();
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
-  const { address, isConnected } = useActiveAddress();
   const { isOwner, loading: roleLoading } = useRole();
 
   const isUser = authenticated && !roleLoading && !isOwner;
@@ -274,11 +271,6 @@ function DashboardShell({
         {/* Wallet & status */}
         <div className="border-t border-white/8 p-4">
           <OwnerConnectButton />
-          {isConnected && address && (
-            <div className="mt-3 text-[11px] text-white/30 break-all">
-              {truncateAddress(address)}
-            </div>
-          )}
         </div>
       </aside>
 
