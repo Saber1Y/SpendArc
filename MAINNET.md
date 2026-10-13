@@ -35,32 +35,25 @@ forge test
 
 All contract tests must pass before deploying.
 
-## 2. Deploy the factory
+## 2. Deploy (one command)
+
+The only input you must provide is a funded Arc private key. From the repo root:
 
 ```bash
-source .env   # ARC_RPC_URL, VAULT_OWNER_PK, EXECUTOR_PRIVATE_KEY, USDC_ADDRESS
-forge script script/DeployFactoryArc.s.sol \
-  --rpc-url "$ARC_RPC_URL" \
-  --private-key "$VAULT_OWNER_PK" \
-  --broadcast
+PRIVATE_KEY=0x<your-funded-key> ./deploy-mainnet.sh
 ```
 
-Set `USDC_ADDRESS=0x3600000000000000000000000000000000000000` and `ARC_RPC_URL=https://rpc.mainnet.arc.io`.
-Record the printed `SpendArcVaultFactory` address.
+This deploys the `SpendArcVaultFactory` and creates your own reference vault through it (a conservative $1/tx, $5/day leash), then prints the `NEXT_PUBLIC_FACTORY_ADDRESS` and `NEXT_PUBLIC_VAULT_ADDRESS` lines to paste into `web/.env.local`.
+The whole deploy costs roughly $0.13-0.25 in USDC gas at current prices.
 
-## 3. (Optional) Deploy the reference vault
-
-The reference vault backs the marketing page's live approved/blocked readout.
-It is not required for the self-serve flow, where every user deploys their own vault through the factory.
+Recommended: pass a separate server signer so the executor key is not your deployer key:
 
 ```bash
-forge script script/DeployArc.s.sol \
-  --rpc-url "$ARC_RPC_URL" \
-  --private-key "$VAULT_OWNER_PK" \
-  --broadcast
+PRIVATE_KEY=0x<deployer-key> EXECUTOR_ADDRESS=0x<executor-wallet> ./deploy-mainnet.sh
 ```
 
-Record the printed `SpendArcVault` address.
+The script defaults the RPC to Arc mainnet and USDC to the native token; override with `ARC_RPC_URL` / `USDC_ADDRESS` if needed.
+`script/DeployFactoryArc.s.sol` and `script/DeployArc.s.sol` remain available if you prefer to deploy the factory and a reference vault separately with explicit env vars.
 
 ## 4. Configure the web app
 
