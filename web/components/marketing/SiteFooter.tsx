@@ -1,12 +1,13 @@
 import {Logo} from "@/components/ui/Logo";
 import {explorerAddress} from "@/lib/chain";
+import {ARC_EXPLORER_URL} from "@/lib/arc";
 import {CONTRACTS} from "@/lib/contracts";
 import {ArrowUpRight} from "@/components/ui/Icons";
 
 const links = [
   {label: "Vault factory", href: explorerAddress(CONTRACTS.factory)},
   {label: "USDC", href: explorerAddress(CONTRACTS.usdc)},
-  {label: "Explorer", href: "https://testnet.arcscan.app"},
+  {label: "Explorer", href: ARC_EXPLORER_URL},
 ];
 
 export function SiteFooter() {

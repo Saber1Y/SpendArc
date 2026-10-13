@@ -4,14 +4,14 @@
 
 **Agent Spending Control Plane**
 
-Policy-checked spend vaults for autonomous agents on **Arc testnet**. Anyone gets their own vault
+Policy-checked spend vaults for autonomous agents on **Arc**. Anyone gets their own vault
 in minutes: pick a leash, fund it with USDC, and hand any AI agent a scoped API key. The agent holds
 nothing - a funded vault enforces caps, allowlists, daily limits and dedup on-chain, while a
 server-side policy gate blocks off-policy calls before they ever touch the chain.
 
-[Architecture](./architecture.md) · [Security](./security.md) · [Adversarial Testing](./adversarialtesting.md) · [Judge's Guide](./JUDGES.md)
+[Architecture](./architecture.md) · [Security](./security.md) · [Adversarial Testing](./adversarialtesting.md) · [Mainnet Deploy](./MAINNET.md)
 
-`Arc testnet 5042002` · `Solidity` · `Foundry` · `Next.js` · `viem` · `MIT`
+`Arc mainnet 5042` · `Solidity` · `Foundry` · `Next.js` · `viem` · `MIT`
 
 </div>
 
@@ -28,8 +28,9 @@ The product is self-serve:
 1. **Create your vault.** One signature deploys a vault owned by *your* wallet (via the
    `SpendArcVaultFactory`, one vault per wallet). It is pre-configured with the leash you chose -
    max per transaction, daily cap, expiry - and pre-allowlisted to USDC and your own address.
-2. **Fund it.** The built-in faucet tops up testnet gas + USDC; you deposit USDC into the vault.
-   The agent can only spend what is in the vault - it never holds a balance itself.
+2. **Fund it.** You deposit USDC into the vault from your own wallet (Arc uses USDC for gas, so a
+   small USDC balance covers both). The agent can only spend what is in the vault - it never holds a
+   balance itself.
 3. **Hand your agent a key.** Register the agent and mint a one-time API key. Any AI agent (opencode,
    ChatGPT, Claude) introspects its leash and makes payments inside it. The visitor owns the vault, so
    tightening the leash or allowlisting a **third-party service** are signed in *their* wallet, then
@@ -54,52 +55,35 @@ Every payment is enforced by **two independent fences**:
 Neither fence substitutes the other. See **[architecture.md](./architecture.md)** for the full design and
 **[security.md](./security.md)** for the guarantees and threat model.
 
-## Live on Arc testnet 5042002
+## Live on Arc mainnet 5042
 
-RPC `https://rpc.testnet.arc.network` · Explorer `https://testnet.arcscan.app`
+RPC `https://rpc.mainnet.arc.io` · Explorer `https://explorer.arc.io`
 
 | Contract | Address |
 |----------|---------|
-| **SpendArcVaultFactory** | [`0x084c2061384bffd6254d1423e35b53ea91aaed87`](https://testnet.arcscan.app/address/0x084c2061384bffd6254d1423e35b53ea91aaed87) |
-| **SpendArcVault (reference)** | [`0x82b7a7a401a5a94a6b5f55ec6aff3c8017633b56`](https://testnet.arcscan.app/address/0x82b7a7a401a5a94a6b5f55ec6aff3c8017633b56) |
-| **Operator / faucet** | [`0x3F5b96A494061F7338Da529e3047809Ac6a7FB84`](https://testnet.arcscan.app/address/0x3F5b96A494061F7338Da529e3047809Ac6a7FB84) |
-| **USDC (testnet)** | [`0x3600000000000000000000000000000000000000`](https://testnet.arcscan.app/address/0x3600000000000000000000000000000000000000) |
+| **SpendArcVaultFactory** | `<fill in after mainnet deploy>` |
+| **SpendArcVault (reference)** | `<fill in after mainnet deploy>` |
+| **USDC (native ERC-20 interface)** | [`0x3600000000000000000000000000000000000000`](https://explorer.arc.io/address/0x3600000000000000000000000000000000000000) |
 
-Every visitor gets their own vault from the factory. The reference vault above is the shared/demo vault.
+Every visitor gets their own vault from the factory. See **[MAINNET.md](./MAINNET.md)** for the deploy
+steps and for recording the live factory address, create-vault tx, deposit tx, and an approved +
+blocked spend pair once deployed.
 
-### Proven on-chain artifacts
+## Try it in your own wallet
 
-Each demo run produces fresh, verifiable artifacts. The two historical receipts below are the classic
-same-agent-one-variable proof (an approved spend and a blocked spend against the same per-tx cap):
-
-- **Approved spend** (1.5 USDC, under the 5 USDC per-tx cap): tx
-  [`0xa1295391…`](https://testnet.arcscan.app/tx/0xa12953915fba548cb16128bb53fa5c51c406f7d051a922db8dc0b2be3678ad5b)
-- **Blocked-by-policy** (6 USDC vs the 5 USDC cap - `AgentActionBlocked`, nothing moved): tx
-  [`0x892fa9cf…`](https://testnet.arcscan.app/tx/0x892fa9cf430c86a1fa5266ca2ca1b9617694ce1579fa223e672bf67c652fc81b)
-
-The current run's artifacts (vault address, create-vault tx, deposit tx, visitor-signed
-`setAllowedService`/`setAgentPolicy` txs, approved + blocked spend txs) are collected in the
-recording flow. The marketing site reads the latest approved + blocked actions live on every
-page load.
-
-## Try it as a judge (no setup required)
-
-Open the live app and walk through the full flow in your own wallet - connect, create a
-vault with a leash, grab faucet funds, deposit USDC, register an agent, and hand the leash
-to a real AI agent. Every step is real and on-chain. See **[JUDGES.md](./JUDGES.md)** for
-the step-by-step walkthrough.
+Open the live app and walk through the full flow - connect, create a vault with a leash, deposit
+USDC, register an agent (one wallet signature proves ownership), and hand the scoped API key to a
+real AI agent. Every step is real and on-chain.
 
 ## Repository layout
 
 ```
-src/                      Solidity - SpendArcVaultFactory.sol, SpendArcVault.sol
-test/                     Foundry suite (unit + fork tests)
-script/                   deploy scripts (DeployFactoryArc, DeployArc, ...)
-client/                   TypeScript agent client (viem)
+src/                      Solidity - SpendArcVaultFactory.sol, SpendArcVault.sol, MockUSD.sol
+test/                     Foundry suite (unit + per-service budget tests)
+script/                   deploy scripts (DeployFactoryArc, DeployArc)
 web/                      Next.js frontend (marketing + dashboard + API routes)
 lib/                      vendored deps (OpenZeppelin, forge-std)
-JUDGES.md                 how to use the product on the live UI (for judges)
-QA.md                     the full end-to-end test flow
+MAINNET.md                mainnet deployment + go-live checklist
 ```
 
 ## Quick start
@@ -113,13 +97,15 @@ forge test
 cd web && npm install && npm run dev   # http://localhost:3000
 ```
 
-Copy `web/.env.example` to `web/.env.local` and fill in the Arc RPC, the factory and reference vault
-addresses, the Privy app ID, and the two signer keys (`EXECUTOR_PRIVATE_KEY` broadcasts vault spends;
-`VAULT_OWNER_PRIVATE_KEY` funds the faucet and configures the shared vault). The dashboard is fully
-live in read-only mode without them; owner-write controls need the owner wallet connected.
+Copy `web/.env.example` to `web/.env.local` and fill in the Arc RPC/chain id, the deployed factory and
+reference vault addresses, the Privy app ID, the `EXECUTOR_PRIVATE_KEY` that broadcasts vault spends,
+and the Turso credentials. `VAULT_OWNER_PRIVATE_KEY` is used only by the deploy scripts, never by the
+running app, and must be a different key from the executor. The dashboard is fully live in read-only
+mode without the server keys; owner-write controls use the connected wallet. See
+**[MAINNET.md](./MAINNET.md)** for the full go-live checklist.
 
-The faucet grants **3 USDC + 0.05 ETH gas** per visitor (`/api/fund`) - enough for a full demo run.
-The demo is recorded against a fresh wallet each time, because the factory allows one vault per owner.
+Users fund their own vaults by depositing USDC from their wallet - there is no server faucet. The
+factory allows one vault per owner.
 
 ## Documentation
 
@@ -127,8 +113,7 @@ The demo is recorded against a fresh wallet each time, because the factory allow
 - **[security.md](./security.md)** - guarantees, threat model, and key management.
 - **[adversarialtesting.md](./adversarialtesting.md)** - the test strategy: unit, differential fuzz,
   fork-against-real-chain, and on-chain acceptance.
-- **[JUDGES.md](./JUDGES.md)** - how to use the product on the live UI, step by step.
-- **[QA.md](./QA.md)** - the full end-to-end test flow.
+- **[MAINNET.md](./MAINNET.md)** - mainnet deployment steps and the pre-submission checklist.
 
 ## License
 
