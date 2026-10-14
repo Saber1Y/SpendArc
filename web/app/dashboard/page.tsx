@@ -334,9 +334,14 @@ function OwnerOverview() {
   const {address, isConnected} = useActiveAddress();
   const agent = (address ?? "0x0000000000000000000000000000000000000000") as Address;
   const {data: state, loading, error, refetch} = useVaultState(agent, CONTRACTS.vault);
-  const {transactions, loading: txLoading} = useApiTransactions();
+  const {transactions: allTransactions, loading: txLoading} = useApiTransactions();
   const {agents} = useApiAgents();
-  const {recipients, tokens} = useApiAllowlist(agents[0]?.id);
+  // Scope the fleet stats to the active network so old testnet records in the shared DB don't
+  // inflate the mainnet counts and activity feed.
+  const networkAgents = agents.filter((a) => (a.network ?? "") === ACTIVE_NETWORK.key);
+  const networkAgentIds = new Set(networkAgents.map((a) => a.id));
+  const transactions = allTransactions.filter((t) => networkAgentIds.has(t.agent_id));
+  const {recipients, tokens} = useApiAllowlist(networkAgents[0]?.id);
 
   const isOwner = isConnected && !!state && isSameAddress(address, state.vaultOwner);
   const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;

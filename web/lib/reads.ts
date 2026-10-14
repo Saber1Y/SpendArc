@@ -54,43 +54,45 @@ function enqueueRead<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function sequential(tasks: (() => Promise<unknown>)[], gap = 250) {
-  const results: unknown[] = [];
-  for (let i = 0; i < tasks.length; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, gap));
-    results.push(await withRetry(tasks[i]));
-  }
-  return results;
-}
+// Canonical Multicall3 (deployed at the same address on Arc). Passed explicitly so viem batches
+// the dashboard's reads even though the Arc chain def may not carry a multicall3 entry.
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
 
-/** One batched load of every read the dashboard shows, keyed on the agent ADDRESS and the vault that governs it. Reads are serialized globally, spaced out, and retried on rate limits. */
+/**
+ * One batched load of every read the dashboard shows, keyed on the agent ADDRESS and the vault
+ * that governs it. The five contract reads go in a single Multicall3 call (one round-trip through
+ * the RPC proxy) instead of six spaced-out sequential calls, so a cold dashboard resolves in well
+ * under a second. getCode runs in parallel. Still serialized globally and retried on rate limits.
+ */
 export async function readVaultState(agent: Address, vault: Address): Promise<VaultState> {
-  return enqueueRead(async () => {
-    const [
-      vaultBalance,
-      policy,
-      remainingDailyCap,
-      tokenAllowed,
-      agentCode,
-      vaultOwner,
-    ] = await sequential([
-      () => publicClient.readContract({address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]}),
-      () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "getPolicy", args: [agent]}),
-      () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "remainingDailyCap", args: [agent]}),
-      () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "allowedToken", args: [agent, CONTRACTS.usdc]}),
-      () => publicClient.getCode({address: agent}),
-      () => publicClient.readContract({address: vault, abi: vaultAbi, functionName: "owner", args: []}),
-    ]);
+  return enqueueRead(() =>
+    withRetry(async () => {
+      const [results, agentCode] = await Promise.all([
+        publicClient.multicall({
+          multicallAddress: MULTICALL3,
+          allowFailure: false,
+          contracts: [
+            {address: CONTRACTS.usdc, abi: usdcAbi, functionName: "balanceOf", args: [vault]},
+            {address: vault, abi: vaultAbi, functionName: "getPolicy", args: [agent]},
+            {address: vault, abi: vaultAbi, functionName: "remainingDailyCap", args: [agent]},
+            {address: vault, abi: vaultAbi, functionName: "allowedToken", args: [agent, CONTRACTS.usdc]},
+            {address: vault, abi: vaultAbi, functionName: "owner", args: []},
+          ],
+        }),
+        publicClient.getCode({address: agent}),
+      ]);
+      const [vaultBalance, policy, remainingDailyCap, tokenAllowed, vaultOwner] = results;
 
-    return {
-      vaultBalance: vaultBalance as bigint,
-      policy: policy as Policy,
-      remainingDailyCap: remainingDailyCap as bigint,
-      tokenAllowed: tokenAllowed as boolean,
-      agentDeployed: (agentCode as `0x${string}`) !== undefined && (agentCode as `0x${string}`) !== "0x",
-      vaultOwner: vaultOwner as Address,
-    };
-  });
+      return {
+        vaultBalance: vaultBalance as bigint,
+        policy: policy as Policy,
+        remainingDailyCap: remainingDailyCap as bigint,
+        tokenAllowed: tokenAllowed as boolean,
+        agentDeployed: agentCode !== undefined && agentCode !== "0x",
+        vaultOwner: vaultOwner as Address,
+      };
+    }),
+  );
 }
 
 export type ActionKind = "approved" | "blocked";

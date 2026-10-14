@@ -1,7 +1,7 @@
 "use client";
 
 import {useVaultState} from "@/lib/hooks";
-import {useApiTransactions, txToAction} from "@/lib/hooks";
+import {useApiTransactions, useApiAgents, txToAction} from "@/lib/hooks";
 import {formatUsdc} from "@/lib/format";
 import {CONTRACTS} from "@/lib/contracts";
 import {ACTIVE_NETWORK} from "@/lib/networks";
@@ -48,7 +48,11 @@ function RecentSettlement({transactions}: {transactions: ReturnType<typeof useAp
 }
 
 export default function PaymentsPage() {
-  const {transactions, loading} = useApiTransactions();
+  const {transactions: allTransactions, loading} = useApiTransactions();
+  const {agents} = useApiAgents();
+  // Scope settlement stats to the active network (ignore stale testnet records in the shared DB).
+  const networkAgentIds = new Set(agents.filter((a) => (a.network ?? "") === ACTIVE_NETWORK.key).map((a) => a.id));
+  const transactions = allTransactions.filter((t) => networkAgentIds.has(t.agent_id));
   const vault = CONTRACTS.vault;
 
   const confirmedCount = transactions.filter((t) => t.execution_status === "CONFIRMED").length;
